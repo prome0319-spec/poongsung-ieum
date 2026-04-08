@@ -105,15 +105,26 @@ export async function createOrOpenDirectRoom(formData: FormData) {
     go('/chat/new', '자기 자신과는 1:1 채팅을 만들 수 없습니다.')
   }
 
-  const { data: targetProfile } = await supabase
+  const { data: targetProfile, error: targetProfileError } = await supabase
     .from('profiles')
-    .select('id, name, nickname')
+    .select('id, name, nickname, user_type')
     .eq('id', targetUserId)
-    .single()
+    .maybeSingle()
+
+  if (targetProfileError) {
+    redirect(`/chat?message=${encodeURIComponent(targetProfileError.message)}`)
+  }
 
   if (!targetProfile) {
-    go('/chat/new', '선택한 사용자를 찾을 수 없습니다.')
+    redirect('/chat?message=상대방 프로필을 찾을 수 없습니다.')
   }
+
+  const myDisplayName = (profile.nickname || profile.name || '사용자').trim()
+  const targetDisplayName = (
+    targetProfile.nickname ||
+    targetProfile.name ||
+    '사용자'
+  ).trim()
 
   const { data: myMemberships } = await supabase
     .from('chat_room_members')
@@ -147,39 +158,37 @@ export async function createOrOpenDirectRoom(formData: FormData) {
     }
   }
 
-  const myDisplayName = (profile.nickname || profile.name || '사용자').trim()
-  const targetDisplayName = (
-    targetProfile.nickname ||
-    targetProfile.name ||
-    '사용자'
-  ).trim()
-
   const { data: room, error: roomError } = await supabase
     .from('chat_rooms')
     .insert({
       title: `${myDisplayName} · ${targetDisplayName}`,
       description: null,
       audience: 'all',
-      sort_order: 999,
-      room_type: 'direct',
-      is_announcement: false,
+      sort_order: 0,
       created_by: user.id,
+      room_type: 'group',
+      is_announcement: false,
     })
     .select('id')
     .single()
 
-  if (roomError || !room) {
-    go('/chat/new', `1:1 채팅방 생성 실패: ${roomError?.message ?? '알 수 없는 오류'}`)
+  if (roomError) {
+    redirect(`/chat?message=${encodeURIComponent(roomError.message)}`)
   }
 
+  if (!room) {
+    redirect('/chat?message=채팅방 생성 결과를 확인하지 못했습니다.')
+  }
+
+  const roomId = room.id
+
   const { error: memberError } = await supabase.from('chat_room_members').insert([
-    { room_id: room.id, user_id: user.id },
-    { room_id: room.id, user_id: targetUserId },
+    { room_id: roomId, user_id: user.id },
+    { room_id: roomId, user_id: targetUserId },
   ])
 
   if (memberError) {
-    await supabase.from('chat_rooms').delete().eq('id', room.id)
-    go('/chat/new', `참여자 등록 실패: ${memberError.message}`)
+    redirect(`/chat?message=${encodeURIComponent(memberError.message)}`)
   }
 
   revalidatePath('/chat')
