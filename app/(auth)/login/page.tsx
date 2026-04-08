@@ -2,16 +2,24 @@ import Link from 'next/link'
 import { login } from '../actions'
 import KakaoLoginButton from '@/components/auth/KakaoLoginButton'
 
-type PageProps = {
-  searchParams?: Promise<{ message?: string }>
+type LoginPageProps = {
+  searchParams: Promise<{
+    message?: string
+  }>
 }
 
-export default async function LoginPage({ searchParams }: PageProps) {
-  const params = searchParams ? await searchParams : undefined
-  const message = params?.message
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { message } = await searchParams
 
   return (
-    <main className="page">
+    <main>
+      {message ? (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {message}
+        </div>
+      ) : null}
+
+      {<main className="page">
       <header className="page-header">
         <h1 className="page-title">풍성이음</h1>
         <p className="page-subtitle">
@@ -40,6 +48,12 @@ export default async function LoginPage({ searchParams }: PageProps) {
 
           {message ? <p className="muted">{message}</p> : null}
 
+          {message ? (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {message}
+            </div>
+          ) : null}
+
           <button className="button" type="submit">
             로그인
           </button>
@@ -54,6 +68,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
           </Link>
         </form>
       </section>
+    </main>}
     </main>
   )
 }

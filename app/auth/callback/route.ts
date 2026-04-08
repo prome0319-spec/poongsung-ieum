@@ -22,7 +22,15 @@ export async function GET(request: Request) {
   const authError = requestUrl.searchParams.get('error')
   const authErrorDescription = requestUrl.searchParams.get('error_description')
 
+  console.log('[auth/callback] start', {
+    hasCode: Boolean(code),
+    next,
+    authError,
+    authErrorDescription,
+  })
+
   if (authError || authErrorDescription) {
+    console.error('[auth/callback] provider error', authErrorDescription ?? authError)
     return redirectWithMessage(
       request,
       '/login',
@@ -31,6 +39,7 @@ export async function GET(request: Request) {
   }
 
   if (!code) {
+    console.error('[auth/callback] missing code')
     return redirectWithMessage(request, '/login', '로그인 승인 코드가 없습니다.')
   }
 
@@ -39,6 +48,7 @@ export async function GET(request: Request) {
   const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
   if (exchangeError) {
+    console.error('[auth/callback] exchange error', exchangeError.message)
     return redirectWithMessage(
       request,
       '/login',
@@ -52,6 +62,7 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser()
 
   if (userError || !user) {
+    console.error('[auth/callback] getUser error', userError?.message)
     return redirectWithMessage(
       request,
       '/login',
@@ -66,6 +77,7 @@ export async function GET(request: Request) {
     .maybeSingle()
 
   if (profileError) {
+    console.error('[auth/callback] profile error', profileError.message)
     return redirectWithMessage(
       request,
       '/login',
@@ -74,10 +86,16 @@ export async function GET(request: Request) {
   }
 
   if (!profile || !profile.onboarding_completed) {
+    console.log('[auth/callback] onboarding required', { userId: user.id })
     const onboardingUrl = new URL('/onboarding', request.url)
     onboardingUrl.searchParams.set('message', '처음 로그인했어요. 온보딩을 완료해주세요.')
     return NextResponse.redirect(onboardingUrl)
   }
+
+  console.log('[auth/callback] success', {
+    userId: user.id,
+    next,
+  })
 
   return NextResponse.redirect(new URL(next, request.url))
 }
