@@ -1,56 +1,54 @@
 'use client'
 
-import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-type Props = {
+type KakaoLoginButtonProps = {
   label?: string
+  className?: string
 }
 
 export default function KakaoLoginButton({
-  label = '카카오로 시작하기',
-}: Props) {
-  const [loading, setLoading] = useState(false)
+  label = '카카오로 로그인 / 회원가입',
+  className,
+}: KakaoLoginButtonProps) {
+  const handleLogin = async () => {
+    const supabase = createClient()
 
-  async function handleLogin() {
-    try {
-      setLoading(true)
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
 
-      const supabase = createClient()
-      const origin = window.location.origin
+    const redirectTo = `${siteUrl}/auth/callback`
 
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'kakao',
-        options: {
-          redirectTo: `${origin}/auth/callback`,
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'kakao',
+      options: {
+        redirectTo,
+        queryParams: {
+          prompt: 'login',
         },
-      })
+      },
+    })
 
-      if (error) {
-        alert(`카카오 로그인 시작 실패: ${error.message}`)
-      }
-    } finally {
-      setLoading(false)
+    if (error) {
+      console.error('Kakao OAuth start error:', error)
+      window.location.href = `/login?message=${encodeURIComponent(
+        '카카오 로그인을 시작하지 못했습니다.'
+      )}`
+      return
+    }
+
+    if (data?.url) {
+      window.location.href = data.url
     }
   }
 
   return (
     <button
       type="button"
+      className={className ?? 'btn btn-kakao'}
       onClick={handleLogin}
-      disabled={loading}
-      style={{
-        width: '100%',
-        padding: '12px 14px',
-        borderRadius: 10,
-        border: '1px solid #e5e7eb',
-        background: '#FEE500',
-        color: '#191919',
-        fontWeight: 700,
-        cursor: loading ? 'not-allowed' : 'pointer',
-      }}
     >
-      {loading ? '카카오로 이동 중...' : label}
+      {label}
     </button>
   )
 }

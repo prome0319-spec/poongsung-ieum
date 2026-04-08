@@ -1,74 +1,45 @@
 import Link from 'next/link'
-import { login } from '../actions'
 import KakaoLoginButton from '@/components/auth/KakaoLoginButton'
 
 type LoginPageProps = {
-  searchParams: Promise<{
+  searchParams?: Promise<{
     message?: string
   }>
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const { message } = await searchParams
+  const params = await searchParams
+  const message = params?.message
 
   return (
-    <main>
-      {message ? (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {message}
-        </div>
-      ) : null}
-
-      {<main className="page">
-      <header className="page-header">
-        <h1 className="page-title">풍성이음</h1>
-        <p className="page-subtitle">
-          교회 청년부 공동체를 위한 연결 앱입니다.
-        </p>
-      </header>
-
-      <section className="card">
-        <h2 className="card-title">로그인</h2>
-
-        <form className="stack" action={login}>
-          <input
-            className="input"
-            name="email"
-            type="email"
-            placeholder="이메일을 입력하세요"
-            required
-          />
-          <input
-            className="input"
-            name="password"
-            type="password"
-            placeholder="비밀번호를 입력하세요"
-            required
-          />
-
-          {message ? <p className="muted">{message}</p> : null}
+    <main className="auth-page">
+      <section className="card" style={{ maxWidth: 420, margin: '40px auto' }}>
+        <div className="stack">
+          <h1>로그인</h1>
+          <p>풍성이음에 로그인해 주세요.</p>
 
           {message ? (
-            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: 12,
+                background: '#fff4f4',
+                border: '1px solid #f3c2c2',
+                color: '#b42318',
+                fontSize: 14,
+              }}
+            >
               {message}
             </div>
           ) : null}
 
-          <button className="button" type="submit">
-            로그인
-          </button>
-          
-          <section style={{ marginTop: 16 }} className="stack">
-            <div style={{ textAlign: 'center', color: '#666', fontSize: 14 }}>또는</div>
-            <KakaoLoginButton label="카카오로 로그인" />
-          </section>
+          <KakaoLoginButton />
 
-          <Link href="/signup" className="button secondary">
-            회원가입
-          </Link>
-        </form>
+          <div style={{ marginTop: 16 }}>
+            <Link href="/signup">이메일 회원가입 페이지로 이동</Link>
+          </div>
+        </div>
       </section>
-    </main>}
     </main>
   )
 }
