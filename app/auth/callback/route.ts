@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-function redirectWithMessage(
-  request: Request,
-  path: string,
-  message: string
-) {
+function redirectWithMessage(request: Request, path: string, message: string) {
   const url = new URL(path, request.url)
   url.searchParams.set('message', message)
   return NextResponse.redirect(url)
@@ -14,17 +10,15 @@ function redirectWithMessage(
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  const errorDescription =
+  const origin = requestUrl.origin
+
+  const providerError =
     requestUrl.searchParams.get('error_description') ||
     requestUrl.searchParams.get('error')
 
-  if (errorDescription) {
-    console.error('[auth/callback] provider error:', errorDescription)
-    return redirectWithMessage(
-      request,
-      '/login',
-      `OAuth 오류: ${errorDescription}`
-    )
+  if (providerError) {
+    console.error('[auth/callback] provider error:', providerError)
+    return redirectWithMessage(request, '/login', `OAuth 오류: ${providerError}`)
   }
 
   if (!code) {
@@ -43,7 +37,7 @@ export async function GET(request: Request) {
       await supabase.auth.exchangeCodeForSession(code)
 
     if (exchangeError) {
-      console.error('[auth/callback] exchangeCodeForSession error:', exchangeError)
+      console.error('[auth/callback] exchange error:', exchangeError)
       return redirectWithMessage(
         request,
         '/login',
@@ -72,7 +66,7 @@ export async function GET(request: Request) {
       .maybeSingle()
 
     if (profileError) {
-      console.error('[auth/callback] profile query error:', profileError)
+      console.error('[auth/callback] profile error:', profileError)
       return redirectWithMessage(
         request,
         '/login',
@@ -80,18 +74,11 @@ export async function GET(request: Request) {
       )
     }
 
-    if (!profile) {
-      console.log('[auth/callback] profile missing -> onboarding')
-      return NextResponse.redirect(new URL('/onboarding', request.url))
+    if (!profile || !profile.onboarding_completed) {
+      return NextResponse.redirect(new URL('/onboarding', origin))
     }
 
-    if (!profile.onboarding_completed) {
-      console.log('[auth/callback] onboarding incomplete -> onboarding')
-      return NextResponse.redirect(new URL('/onboarding', request.url))
-    }
-
-    console.log('[auth/callback] success -> home')
-    return NextResponse.redirect(new URL('/home', request.url))
+    return NextResponse.redirect(new URL('/home', origin))
   } catch (error) {
     console.error('[auth/callback] unexpected error:', error)
     return redirectWithMessage(
