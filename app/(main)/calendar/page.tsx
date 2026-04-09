@@ -8,7 +8,13 @@ import {
 } from '@/lib/calendar-events'
 
 type UserType = 'soldier' | 'general' | 'admin'
-type ScheduleCategory = 'worship' | 'meeting' | 'event' | 'service' | 'general'
+type ScheduleCategory =
+  | 'worship'
+  | 'meeting'
+  | 'event'
+  | 'service'
+  | 'general'
+  | 'birthday'
 type Audience = 'all' | 'soldier' | 'general'
 
 type ScheduleRow = {
@@ -16,10 +22,16 @@ type ScheduleRow = {
   title: string
   description: string | null
   location: string | null
-  category: ScheduleCategory
+  category: Exclude<ScheduleCategory, 'birthday'>
   audience: Audience
   start_at: string
   end_at: string
+  is_recurring: boolean
+  recurrence_type: 'weekly' | null
+  recurrence_day_of_week: number | null
+  recurrence_end_date: string | null
+  base_start_time: string | null
+  base_end_time: string | null
 }
 
 type CurrentProfileRow = {
@@ -28,6 +40,19 @@ type CurrentProfileRow = {
   nickname: string | null
   birth_date: string | null
   user_type: UserType | null
+}
+
+type CalendarEvent = {
+  id: string
+  title: string
+  description: string | null
+  location: string | null
+  category: ScheduleCategory
+  audience: Audience
+  start_at: string
+  end_at: string
+  is_virtual?: boolean
+  base_schedule_id?: string | null
 }
 
 const SEOUL_TZ = 'Asia/Seoul'
@@ -133,6 +158,8 @@ function getCategoryLabel(category: ScheduleCategory) {
       return '행사'
     case 'service':
       return '섬김'
+    case 'birthday':
+      return '생일'
     default:
       return '일반'
   }
@@ -177,6 +204,34 @@ function buildCalendarCells(monthKey: string) {
   return cells
 }
 
+function toMonthBoundaryIso(monthKey: string) {
+  const [year, month] = monthKey.split('-').map(Number)
+  return `${year}-${String(month).padStart(2, '0')}-01T00:00:00+09:00`
+}
+
+function mapScheduleToEvent(schedule: ScheduleRow): CalendarEvent {
+  return {
+    id: schedule.id,
+    title: schedule.title,
+    description: schedule.description,
+    location: schedule.location,
+    category: schedule.category,
+    audience: schedule.audience,
+    start_at: schedule.start_at,
+    end_at: schedule.end_at,
+    is_virtual: false,
+    base_schedule_id: schedule.id,
+  }
+}
+
+function getEventHref(event: CalendarEvent) {
+  if (event.category === 'birthday') {
+    return null
+  }
+
+  return `/calendar/${event.base_schedule_id ?? event.id}`
+}
+
 export default async function CalendarPage({
   searchParams,
 }: {
@@ -184,6 +239,9 @@ export default async function CalendarPage({
 }) {
   const { month } = await searchParams
   const monthKey = normalizeMonth(month)
+  const baseMonthDate = parseMonthKey(monthKey)
+  const currentYear = baseMonthDate.getUTCFullYear()
+  const currentMonthIndex = baseMonthDate.getUTCMonth()
 
   const supabase = await createClient()
 
@@ -195,70 +253,135 @@ export default async function CalendarPage({
     redirect('/login')
   }
 
-  const { data: profile } = await supabase
+  const profileResult = await supabase
     .from('profiles')
     .select('id, name, nickname, birth_date, user_type')
     .eq('id', user.id)
     .eq('onboarding_completed', true)
-    .maybeSingle() as {data: CurrentProfileRow | null }
+    .maybeSingle()
 
+  const profile = profileResult.data as CurrentProfileRow | null
   const userType = profile?.user_type ?? 'general'
-  const visibleAudiences =
+  const visibleAudiences: Audience[] =
     userType === 'admin' ? ['all', 'soldier', 'general'] : ['all', userType]
 
-  const { data: birthdayProfiles } = await supabase
-    .from('profiles')
-    .select('id, name, nickname, birth_date')
-    .eq('onboarding_completed', true)
-    .not('birth_date', 'is', null)
-
-  const monthStart = parseMonthKey(monthKey)
-  const nextMonthStart = parseMonthKey(monthKey)
-  nextMonthStart.setUTCMonth(nextMonthStart.getUTCMonth() + 1)
-
-  const monthStartIso = monthStart.toISOString()
-  const nextMonthStartIso = nextMonthStart.toISOString()
+  const monthStartIso = toMonthBoundaryIso(monthKey)
+  const nextMonthKey = getNextMonthKey(monthKey)
+  const nextMonthStartIso = toMonthBoundaryIso(nextMonthKey)
+  const monthStartDateKey = `${monthKey}-01`
   const nowIso = new Date().toISOString()
 
-  const [{ data: monthSchedulesData }, { data: upcomingSchedulesData }] =
-    await Promise.all([
-      supabase
-        .from('schedules')
-        .select(
-          'id, title, description, location, category, audience, start_at, end_at, is_recurring, recurrence_type, recurrence_day_of_week, recurrence_end_date, base_start_time, base_end_time'
-        )
-        .in('audience', visibleAudiences)
-        .lt('start_at', nextMonthStartIso)
-        .gte('end_at', monthStartIso)
-        .order('start_at', { ascending: true }),
-      supabase
-        .from('schedules')
-        .select(
-          'id, title, description, location, category, audience, start_at, end_at, is_recurring, recurrence_type, recurrence_day_of_week, recurrence_end_date, base_start_time, base_end_time'
-        )
-        .in('audience', visibleAudiences)
-        .gte('end_at', nowIso)
-        .order('start_at', { ascending: true })
-        .limit(6),
-    ])
+  const scheduleSelect = `
+    id,
+    title,
+    description,
+    location,
+    category,
+    audience,
+    start_at,
+    end_at,
+    is_recurring,
+    recurrence_type,
+    recurrence_day_of_week,
+    recurrence_end_date,
+    base_start_time,
+    base_end_time
+  `
 
-  const monthSchedules = (monthSchedulesData ?? []) as ScheduleRow[]
-  const upcomingSchedules = (upcomingSchedulesData ?? []) as ScheduleRow[]
+  const [
+    birthdayProfilesResult,
+    normalMonthSchedulesResult,
+    recurringSchedulesResult,
+    upcomingNormalSchedulesResult,
+  ] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, name, nickname, birth_date')
+      .eq('onboarding_completed', true)
+      .not('birth_date', 'is', null),
+    supabase
+      .from('schedules')
+      .select(scheduleSelect)
+      .eq('is_recurring', false)
+      .in('audience', visibleAudiences)
+      .lt('start_at', nextMonthStartIso)
+      .gte('end_at', monthStartIso)
+      .order('start_at', { ascending: true }),
+    supabase
+      .from('schedules')
+      .select(scheduleSelect)
+      .eq('is_recurring', true)
+      .in('audience', visibleAudiences)
+      .order('start_at', { ascending: true }),
+    supabase
+      .from('schedules')
+      .select(scheduleSelect)
+      .eq('is_recurring', false)
+      .in('audience', visibleAudiences)
+      .gte('end_at', nowIso)
+      .order('start_at', { ascending: true })
+      .limit(6),
+  ])
 
-  const schedulesByDate = new Map<string, ScheduleRow[]>()
+  const birthdayProfiles =
+    (birthdayProfilesResult.data ?? []) as Array<{
+      id: string
+      name: string | null
+      nickname: string | null
+      birth_date: string | null
+    }>
 
-  for (const schedule of monthSchedules) {
-    const dateKey = getDateKeyInSeoul(schedule.start_at)
-    const current = schedulesByDate.get(dateKey) ?? []
-    current.push(schedule)
-    schedulesByDate.set(dateKey, current)
+  const normalMonthSchedules = (normalMonthSchedulesResult.data ?? []) as ScheduleRow[]
+  const recurringScheduleBases = ((recurringSchedulesResult.data ?? []) as ScheduleRow[]).filter(
+    (schedule) => {
+      if (!schedule.recurrence_end_date) {
+        return true
+      }
+
+      return schedule.recurrence_end_date >= monthStartDateKey
+    }
+  )
+  const upcomingNormalSchedules = (upcomingNormalSchedulesResult.data ?? []) as ScheduleRow[]
+
+  const normalMonthEvents = normalMonthSchedules.map(mapScheduleToEvent)
+  const birthdayEvents = buildBirthdayEvents(
+    birthdayProfiles,
+    currentYear,
+    currentMonthIndex
+  ) as CalendarEvent[]
+  const recurringEvents = buildWeeklyRecurringEvents(
+    recurringScheduleBases,
+    currentYear,
+    currentMonthIndex
+  ) as CalendarEvent[]
+
+  const monthEvents = sortCalendarEvents([
+    ...normalMonthEvents,
+    ...birthdayEvents,
+    ...recurringEvents,
+  ]) as CalendarEvent[]
+
+  const upcomingEvents = sortCalendarEvents([
+    ...upcomingNormalSchedules.map(mapScheduleToEvent),
+    ...birthdayEvents.filter((event) => event.end_at >= nowIso),
+    ...recurringEvents.filter((event) => event.end_at >= nowIso),
+  ])
+    .filter((event) => event.end_at >= nowIso)
+    .slice(0, 6) as CalendarEvent[]
+
+  const eventsByDate = new Map<string, CalendarEvent[]>()
+
+  for (const event of monthEvents) {
+    const dateKey = getDateKeyInSeoul(event.start_at)
+    const current = eventsByDate.get(dateKey) ?? []
+    current.push(event)
+    eventsByDate.set(dateKey, current)
   }
 
   const calendarCells = buildCalendarCells(monthKey)
   const todayKey = getTodayKeyInSeoul()
   const monthLabel = getMonthLabel(monthKey)
   const prevMonthKey = getPrevMonthKey(monthKey)
-  const nextMonthKey = getNextMonthKey(monthKey)
 
   return (
     <div
@@ -397,7 +520,7 @@ export default async function CalendarPage({
               )
             }
 
-            const daySchedules = schedulesByDate.get(cell.dateKey) ?? []
+            const dayEvents = eventsByDate.get(cell.dateKey) ?? []
             const isToday = cell.dateKey === todayKey
 
             return (
@@ -425,37 +548,64 @@ export default async function CalendarPage({
                 </div>
 
                 <div style={{ display: 'grid', gap: 4 }}>
-                  {daySchedules.slice(0, 2).map((schedule) => (
-                    <Link
-                      key={schedule.id}
-                      href={`/calendar/${schedule.id}`}
-                      style={{
-                        display: 'block',
-                        textDecoration: 'none',
-                        fontSize: 12,
-                        lineHeight: 1.4,
-                        padding: '4px 6px',
-                        borderRadius: 8,
-                        background: '#f3f4f6',
-                        color: '#111827',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                      title={schedule.title}
-                    >
-                      {schedule.title}
-                    </Link>
-                  ))}
+                  {dayEvents.slice(0, 2).map((event) => {
+                    const href = getEventHref(event)
 
-                  {daySchedules.length > 2 && (
+                    if (!href) {
+                      return (
+                        <div
+                          key={event.id}
+                          style={{
+                            display: 'block',
+                            fontSize: 12,
+                            lineHeight: 1.4,
+                            padding: '4px 6px',
+                            borderRadius: 8,
+                            background: '#fef3c7',
+                            color: '#92400e',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={event.title}
+                        >
+                          {event.title}
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <Link
+                        key={event.id}
+                        href={href}
+                        style={{
+                          display: 'block',
+                          textDecoration: 'none',
+                          fontSize: 12,
+                          lineHeight: 1.4,
+                          padding: '4px 6px',
+                          borderRadius: 8,
+                          background: '#f3f4f6',
+                          color: '#111827',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                        title={event.title}
+                      >
+                        {event.title}
+                      </Link>
+                    )
+                  })}
+
+                  {dayEvents.length > 2 && (
                     <div
                       style={{
                         fontSize: 12,
                         color: '#6b7280',
                       }}
                     >
-                      +{daySchedules.length - 2}개 더
+                      +{dayEvents.length - 2}개 더
                     </div>
                   )}
                 </div>
@@ -482,74 +632,108 @@ export default async function CalendarPage({
           </p>
         </div>
 
-        {upcomingSchedules.length === 0 ? (
+        {upcomingEvents.length === 0 ? (
           <p style={{ margin: 0, color: '#6b7280' }}>
             예정된 일정이 아직 없어요.
           </p>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
-            {upcomingSchedules.map((schedule) => (
-              <Link
-                key={schedule.id}
-                href={`/calendar/${schedule.id}`}
-                style={{
-                  display: 'block',
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  border: '1px solid #f1f5f9',
-                  borderRadius: 14,
-                  padding: 14,
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
-                    marginBottom: 8,
-                  }}
-                >
-                  <span
+            {upcomingEvents.map((event) => {
+              const href = getEventHref(event)
+
+              const content = (
+                <>
+                  <div
                     style={{
-                      fontSize: 12,
-                      padding: '4px 8px',
-                      borderRadius: 999,
-                      background: '#f3f4f6',
+                      display: 'flex',
+                      gap: 8,
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      marginBottom: 8,
                     }}
                   >
-                    {getCategoryLabel(schedule.category)}
-                  </span>
+                    <span
+                      style={{
+                        fontSize: 12,
+                        padding: '4px 8px',
+                        borderRadius: 999,
+                        background:
+                          event.category === 'birthday' ? '#fef3c7' : '#f3f4f6',
+                        color:
+                          event.category === 'birthday' ? '#92400e' : '#111827',
+                      }}
+                    >
+                      {getCategoryLabel(event.category)}
+                    </span>
 
-                  <span
+                    <span
+                      style={{
+                        fontSize: 12,
+                        padding: '4px 8px',
+                        borderRadius: 999,
+                        background: '#f9fafb',
+                        color: '#6b7280',
+                      }}
+                    >
+                      {getAudienceLabel(event.audience)}
+                    </span>
+                  </div>
+
+                  <div style={{ fontWeight: 700, marginBottom: 8 }}>{event.title}</div>
+
+                  <div
                     style={{
-                      fontSize: 12,
-                      padding: '4px 8px',
-                      borderRadius: 999,
-                      background: '#f9fafb',
-                      color: '#6b7280',
+                      color: '#4b5563',
+                      fontSize: 14,
+                      lineHeight: 1.6,
                     }}
                   >
-                    {getAudienceLabel(schedule.audience)}
-                  </span>
-                </div>
+                    {event.category === 'birthday' ? (
+                      <div>{formatDateTime(event.start_at)}</div>
+                    ) : (
+                      <>
+                        <div>{formatDateTime(event.start_at)}</div>
+                        <div>{formatTimeRange(event.start_at, event.end_at)}</div>
+                      </>
+                    )}
+                    {event.location && <div>장소: {event.location}</div>}
+                  </div>
+                </>
+              )
 
-                <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                  {schedule.title}
-                </div>
+              if (!href) {
+                return (
+                  <div
+                    key={event.id}
+                    style={{
+                      border: '1px solid #f1f5f9',
+                      borderRadius: 14,
+                      padding: 14,
+                      background: '#fff',
+                    }}
+                  >
+                    {content}
+                  </div>
+                )
+              }
 
-                <div
+              return (
+                <Link
+                  key={event.id}
+                  href={href}
                   style={{
-                    color: '#4b5563',
-                    fontSize: 14,
-                    lineHeight: 1.6,
+                    display: 'block',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    border: '1px solid #f1f5f9',
+                    borderRadius: 14,
+                    padding: 14,
                   }}
                 >
-                  <div>{formatDateTime(schedule.start_at)}</div>
-                  {schedule.location && <div>장소: {schedule.location}</div>}
-                </div>
-              </Link>
-            ))}
+                  {content}
+                </Link>
+              )
+            })}
           </div>
         )}
       </section>
@@ -571,75 +755,108 @@ export default async function CalendarPage({
           </p>
         </div>
 
-        {monthSchedules.length === 0 ? (
+        {monthEvents.length === 0 ? (
           <p style={{ margin: 0, color: '#6b7280' }}>
             이 달에는 표시할 일정이 없어요.
           </p>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
-            {monthSchedules.map((schedule) => (
-              <Link
-                key={schedule.id}
-                href={`/calendar/${schedule.id}`}
-                style={{
-                  display: 'block',
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  border: '1px solid #f1f5f9',
-                  borderRadius: 14,
-                  padding: 14,
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
-                    marginBottom: 8,
-                  }}
-                >
-                  <span
+            {monthEvents.map((event) => {
+              const href = getEventHref(event)
+
+              const content = (
+                <>
+                  <div
                     style={{
-                      fontSize: 12,
-                      padding: '4px 8px',
-                      borderRadius: 999,
-                      background: '#f3f4f6',
+                      display: 'flex',
+                      gap: 8,
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      marginBottom: 8,
                     }}
                   >
-                    {getCategoryLabel(schedule.category)}
-                  </span>
+                    <span
+                      style={{
+                        fontSize: 12,
+                        padding: '4px 8px',
+                        borderRadius: 999,
+                        background:
+                          event.category === 'birthday' ? '#fef3c7' : '#f3f4f6',
+                        color:
+                          event.category === 'birthday' ? '#92400e' : '#111827',
+                      }}
+                    >
+                      {getCategoryLabel(event.category)}
+                    </span>
 
-                  <span
+                    <span
+                      style={{
+                        fontSize: 12,
+                        padding: '4px 8px',
+                        borderRadius: 999,
+                        background: '#f9fafb',
+                        color: '#6b7280',
+                      }}
+                    >
+                      {getAudienceLabel(event.audience)}
+                    </span>
+                  </div>
+
+                  <div style={{ fontWeight: 700, marginBottom: 8 }}>{event.title}</div>
+
+                  <div
                     style={{
-                      fontSize: 12,
-                      padding: '4px 8px',
-                      borderRadius: 999,
-                      background: '#f9fafb',
-                      color: '#6b7280',
+                      color: '#4b5563',
+                      fontSize: 14,
+                      lineHeight: 1.6,
                     }}
                   >
-                    {getAudienceLabel(schedule.audience)}
-                  </span>
-                </div>
+                    {event.category === 'birthday' ? (
+                      <div>{formatDateTime(event.start_at)}</div>
+                    ) : (
+                      <>
+                        <div>{formatDateTime(event.start_at)}</div>
+                        <div>{formatTimeRange(event.start_at, event.end_at)}</div>
+                      </>
+                    )}
+                    {event.location && <div>장소: {event.location}</div>}
+                  </div>
+                </>
+              )
 
-                <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                  {schedule.title}
-                </div>
+              if (!href) {
+                return (
+                  <div
+                    key={event.id}
+                    style={{
+                      border: '1px solid #f1f5f9',
+                      borderRadius: 14,
+                      padding: 14,
+                      background: '#fff',
+                    }}
+                  >
+                    {content}
+                  </div>
+                )
+              }
 
-                <div
+              return (
+                <Link
+                  key={event.id}
+                  href={href}
                   style={{
-                    color: '#4b5563',
-                    fontSize: 14,
-                    lineHeight: 1.6,
+                    display: 'block',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    border: '1px solid #f1f5f9',
+                    borderRadius: 14,
+                    padding: 14,
                   }}
                 >
-                  <div>{formatDateTime(schedule.start_at)}</div>
-                  <div>{formatTimeRange(schedule.start_at, schedule.end_at)}</div>
-                  {schedule.location && <div>장소: {schedule.location}</div>}
-                </div>
-              </Link>
-            ))}
+                  {content}
+                </Link>
+              )
+            })}
           </div>
         )}
       </section>

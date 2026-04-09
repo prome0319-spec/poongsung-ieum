@@ -16,9 +16,16 @@ type ScheduleRow = {
   audience: Audience
   start_at: string
   end_at: string
+  is_recurring: boolean
+  recurrence_type: 'weekly' | null
+  recurrence_day_of_week: number | null
+  recurrence_end_date: string | null
+  base_start_time: string | null
+  base_end_time: string | null
 }
 
 const SEOUL_TZ = 'Asia/Seoul'
+const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'] as const
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat('ko-KR', {
@@ -30,6 +37,11 @@ function formatDateTime(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value))
+}
+
+function formatTime(value: string | null) {
+  if (!value) return '-'
+  return value.slice(0, 5)
 }
 
 function getCategoryLabel(category: ScheduleCategory) {
@@ -58,6 +70,17 @@ function getAudienceLabel(audience: Audience) {
   }
 }
 
+function getRecurringLabel(schedule: ScheduleRow) {
+  if (!schedule.is_recurring || schedule.recurrence_type !== 'weekly') {
+    return null
+  }
+
+  const weekday = WEEKDAY_LABELS[schedule.recurrence_day_of_week ?? 0]
+  return `매주 ${weekday}요일 ${formatTime(schedule.base_start_time)} ~ ${formatTime(
+    schedule.base_end_time
+  )}`
+}
+
 export default async function AdminCalendarPage() {
   const supabase = await createClient()
 
@@ -82,21 +105,33 @@ export default async function AdminCalendarPage() {
   }
 
   const nowIso = new Date().toISOString()
+  const scheduleSelect = `
+    id,
+    title,
+    description,
+    location,
+    category,
+    audience,
+    start_at,
+    end_at,
+    is_recurring,
+    recurrence_type,
+    recurrence_day_of_week,
+    recurrence_end_date,
+    base_start_time,
+    base_end_time
+  `
 
   const [{ data: upcomingRows }, { data: recentRows }] = await Promise.all([
     supabase
       .from('schedules')
-      .select(
-        'id, title, description, location, category, audience, start_at, end_at'
-      )
+      .select(scheduleSelect)
       .gte('end_at', nowIso)
       .order('start_at', { ascending: true })
       .limit(20),
     supabase
       .from('schedules')
-      .select(
-        'id, title, description, location, category, audience, start_at, end_at'
-      )
+      .select(scheduleSelect)
       .lt('end_at', nowIso)
       .order('start_at', { ascending: false })
       .limit(10),
@@ -296,33 +331,64 @@ export default async function AdminCalendarPage() {
                 }}
               />
             </div>
+          </div>
 
-            <section className="stack" style={{ marginTop: 12 }}>
-              <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input type="checkbox" name="is_recurring" />
-                반복 일정으로 등록
-              </label>
+          <section
+            style={{
+              display: 'grid',
+              gap: 10,
+              padding: 12,
+              borderRadius: 12,
+              background: '#f8fafc',
+              border: '1px solid #e5e7eb',
+            }}
+          >
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input type="checkbox" name="is_recurring" />
+              반복 일정으로 등록
+            </label>
 
-              <div className="field">
+            <div
+              style={{
+                display: 'grid',
+                gap: 12,
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              }}
+            >
+              <div style={{ display: 'grid', gap: 6 }}>
                 <label htmlFor="recurrence_type">반복 유형</label>
                 <select
                   id="recurrence_type"
                   name="recurrence_type"
-                  className="input"
                   defaultValue=""
+                  style={{
+                    width: '100%',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 12,
+                    padding: 12,
+                    font: 'inherit',
+                    background: '#fff',
+                  }}
                 >
                   <option value="">반복 안 함</option>
                   <option value="weekly">매주</option>
                 </select>
               </div>
 
-              <div className="field">
+              <div style={{ display: 'grid', gap: 6 }}>
                 <label htmlFor="recurrence_day_of_week">반복 요일</label>
                 <select
                   id="recurrence_day_of_week"
                   name="recurrence_day_of_week"
-                  className="input"
                   defaultValue="0"
+                  style={{
+                    width: '100%',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 12,
+                    padding: 12,
+                    font: 'inherit',
+                    background: '#fff',
+                  }}
                 >
                   <option value="0">일요일</option>
                   <option value="1">월요일</option>
@@ -334,21 +400,29 @@ export default async function AdminCalendarPage() {
                 </select>
               </div>
 
-              <div className="field">
+              <div style={{ display: 'grid', gap: 6 }}>
                 <label htmlFor="recurrence_end_date">반복 종료일</label>
                 <input
                   id="recurrence_end_date"
                   name="recurrence_end_date"
                   type="date"
-                  className="input"
+                  style={{
+                    width: '100%',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 12,
+                    padding: 12,
+                    font: 'inherit',
+                    background: '#fff',
+                  }}
                 />
               </div>
+            </div>
 
-              <p style={{ color: '#666', fontSize: 13 }}>
-                반복 일정일 때는 시작일시/종료일시의 시간값을 기준으로 매주 일정이 만들어집니다.
-              </p>
-            </section>
-          </div>
+            <p style={{ margin: 0, color: '#666', fontSize: 13 }}>
+              반복 일정일 때는 시작 일시와 종료 일시의 시간을 기준으로 매주 일정이
+              만들어집니다.
+            </p>
+          </section>
 
           <div>
             <button
@@ -390,106 +464,125 @@ export default async function AdminCalendarPage() {
           <p style={{ margin: 0, color: '#6b7280' }}>예정 일정이 없어요.</p>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
-            {upcomingSchedules.map((schedule) => (
-              <div
-                key={schedule.id}
-                style={{
-                  border: '1px solid #f1f5f9',
-                  borderRadius: 14,
-                  padding: 14,
-                  display: 'grid',
-                  gap: 10,
-                }}
-              >
+            {upcomingSchedules.map((schedule) => {
+              const recurringLabel = getRecurringLabel(schedule)
+
+              return (
                 <div
+                  key={schedule.id}
                   style={{
-                    display: 'flex',
-                    gap: 8,
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
+                    border: '1px solid #f1f5f9',
+                    borderRadius: 14,
+                    padding: 14,
+                    display: 'grid',
+                    gap: 10,
                   }}
                 >
-                  <span
+                  <div
                     style={{
-                      fontSize: 12,
-                      padding: '4px 8px',
-                      borderRadius: 999,
-                      background: '#f3f4f6',
+                      display: 'flex',
+                      gap: 8,
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
                     }}
                   >
-                    {getCategoryLabel(schedule.category)}
-                  </span>
-
-                  <span
-                    style={{
-                      fontSize: 12,
-                      padding: '4px 8px',
-                      borderRadius: 999,
-                      background: '#f9fafb',
-                      color: '#6b7280',
-                    }}
-                  >
-                    {getAudienceLabel(schedule.audience)}
-                  </span>
-                </div>
-
-                <div style={{ fontWeight: 700, fontSize: 16 }}>{schedule.title}</div>
-
-                <div style={{ color: '#4b5563', fontSize: 14, lineHeight: 1.6 }}>
-                  <div>시작: {formatDateTime(schedule.start_at)}</div>
-                  <div>종료: {formatDateTime(schedule.end_at)}</div>
-                  {schedule.location && <div>장소: {schedule.location}</div>}
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <Link
-                    href={`/calendar/${schedule.id}`}
-                    style={{
-                      textDecoration: 'none',
-                      padding: '10px 14px',
-                      borderRadius: 10,
-                      border: '1px solid #d1d5db',
-                      color: '#111827',
-                      fontWeight: 600,
-                    }}
-                  >
-                    상세 보기
-                  </Link>
-
-                  <Link
-                    href={`/admin/calendar/${schedule.id}/edit`}
-                    style={{
-                      textDecoration: 'none',
-                      padding: '10px 14px',
-                      borderRadius: 10,
-                      border: '1px solid #d1d5db',
-                      color: '#111827',
-                      fontWeight: 600,
-                    }}
-                  >
-                    수정하기
-                  </Link>
-
-                  <form action={deleteSchedule}>
-                    <input type="hidden" name="schedule_id" value={schedule.id} />
-                    <button
-                      type="submit"
+                    <span
                       style={{
-                        padding: '10px 14px',
-                        borderRadius: 10,
-                        border: '1px solid #ef4444',
-                        background: '#fff',
-                        color: '#ef4444',
-                        fontWeight: 700,
-                        cursor: 'pointer',
+                        fontSize: 12,
+                        padding: '4px 8px',
+                        borderRadius: 999,
+                        background: '#f3f4f6',
                       }}
                     >
-                      삭제하기
-                    </button>
-                  </form>
+                      {getCategoryLabel(schedule.category)}
+                    </span>
+
+                    <span
+                      style={{
+                        fontSize: 12,
+                        padding: '4px 8px',
+                        borderRadius: 999,
+                        background: '#f9fafb',
+                        color: '#6b7280',
+                      }}
+                    >
+                      {getAudienceLabel(schedule.audience)}
+                    </span>
+
+                    {recurringLabel && (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          padding: '4px 8px',
+                          borderRadius: 999,
+                          background: '#eff6ff',
+                          color: '#1d4ed8',
+                        }}
+                      >
+                        {recurringLabel}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>{schedule.title}</div>
+
+                  <div style={{ color: '#4b5563', fontSize: 14, lineHeight: 1.6 }}>
+                    <div>시작: {formatDateTime(schedule.start_at)}</div>
+                    <div>종료: {formatDateTime(schedule.end_at)}</div>
+                    {schedule.location && <div>장소: {schedule.location}</div>}
+                    {schedule.description && <div>설명: {schedule.description}</div>}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <Link
+                      href={`/calendar/${schedule.id}`}
+                      style={{
+                        textDecoration: 'none',
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        border: '1px solid #d1d5db',
+                        color: '#111827',
+                        fontWeight: 600,
+                      }}
+                    >
+                      상세 보기
+                    </Link>
+
+                    <Link
+                      href={`/admin/calendar/${schedule.id}/edit`}
+                      style={{
+                        textDecoration: 'none',
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        border: '1px solid #d1d5db',
+                        color: '#111827',
+                        fontWeight: 600,
+                      }}
+                    >
+                      수정하기
+                    </Link>
+
+                    <form action={deleteSchedule}>
+                      <input type="hidden" name="schedule_id" value={schedule.id} />
+                      <button
+                        type="submit"
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: 10,
+                          border: '1px solid #ef4444',
+                          background: '#fff',
+                          color: '#ef4444',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        삭제하기
+                      </button>
+                    </form>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </section>
@@ -515,88 +608,107 @@ export default async function AdminCalendarPage() {
           <p style={{ margin: 0, color: '#6b7280' }}>최근 지난 일정이 없어요.</p>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
-            {recentSchedules.map((schedule) => (
-              <div
-                key={schedule.id}
-                style={{
-                  border: '1px solid #f1f5f9',
-                  borderRadius: 14,
-                  padding: 14,
-                  display: 'grid',
-                  gap: 10,
-                }}
-              >
+            {recentSchedules.map((schedule) => {
+              const recurringLabel = getRecurringLabel(schedule)
+
+              return (
                 <div
+                  key={schedule.id}
                   style={{
-                    display: 'flex',
-                    gap: 8,
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
+                    border: '1px solid #f1f5f9',
+                    borderRadius: 14,
+                    padding: 14,
+                    display: 'grid',
+                    gap: 10,
                   }}
                 >
-                  <span
+                  <div
                     style={{
-                      fontSize: 12,
-                      padding: '4px 8px',
-                      borderRadius: 999,
-                      background: '#f3f4f6',
+                      display: 'flex',
+                      gap: 8,
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
                     }}
                   >
-                    {getCategoryLabel(schedule.category)}
-                  </span>
+                    <span
+                      style={{
+                        fontSize: 12,
+                        padding: '4px 8px',
+                        borderRadius: 999,
+                        background: '#f3f4f6',
+                      }}
+                    >
+                      {getCategoryLabel(schedule.category)}
+                    </span>
 
-                  <span
-                    style={{
-                      fontSize: 12,
-                      padding: '4px 8px',
-                      borderRadius: 999,
-                      background: '#f9fafb',
-                      color: '#6b7280',
-                    }}
-                  >
-                    {getAudienceLabel(schedule.audience)}
-                  </span>
+                    <span
+                      style={{
+                        fontSize: 12,
+                        padding: '4px 8px',
+                        borderRadius: 999,
+                        background: '#f9fafb',
+                        color: '#6b7280',
+                      }}
+                    >
+                      {getAudienceLabel(schedule.audience)}
+                    </span>
+
+                    {recurringLabel && (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          padding: '4px 8px',
+                          borderRadius: 999,
+                          background: '#eff6ff',
+                          color: '#1d4ed8',
+                        }}
+                      >
+                        {recurringLabel}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>{schedule.title}</div>
+
+                  <div style={{ color: '#4b5563', fontSize: 14, lineHeight: 1.6 }}>
+                    <div>시작: {formatDateTime(schedule.start_at)}</div>
+                    <div>종료: {formatDateTime(schedule.end_at)}</div>
+                    {schedule.location && <div>장소: {schedule.location}</div>}
+                    {schedule.description && <div>설명: {schedule.description}</div>}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <Link
+                      href={`/calendar/${schedule.id}`}
+                      style={{
+                        textDecoration: 'none',
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        border: '1px solid #d1d5db',
+                        color: '#111827',
+                        fontWeight: 600,
+                      }}
+                    >
+                      상세 보기
+                    </Link>
+
+                    <Link
+                      href={`/admin/calendar/${schedule.id}/edit`}
+                      style={{
+                        textDecoration: 'none',
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        border: '1px solid #d1d5db',
+                        color: '#111827',
+                        fontWeight: 600,
+                      }}
+                    >
+                      수정하기
+                    </Link>
+                  </div>
                 </div>
-
-                <div style={{ fontWeight: 700, fontSize: 16 }}>{schedule.title}</div>
-
-                <div style={{ color: '#4b5563', fontSize: 14, lineHeight: 1.6 }}>
-                  <div>시작: {formatDateTime(schedule.start_at)}</div>
-                  <div>종료: {formatDateTime(schedule.end_at)}</div>
-                  {schedule.location && <div>장소: {schedule.location}</div>}
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <Link
-                    href={`/calendar/${schedule.id}`}
-                    style={{
-                      textDecoration: 'none',
-                      padding: '10px 14px',
-                      borderRadius: 10,
-                      border: '1px solid #d1d5db',
-                      color: '#111827',
-                      fontWeight: 600,
-                    }}
-                  >
-                    상세 보기
-                  </Link>
-
-                  <Link
-                    href={`/admin/calendar/${schedule.id}/edit`}
-                    style={{
-                      textDecoration: 'none',
-                      padding: '10px 14px',
-                      borderRadius: 10,
-                      border: '1px solid #d1d5db',
-                      color: '#111827',
-                      fontWeight: 600,
-                    }}
-                  >
-                    수정하기
-                  </Link>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </section>

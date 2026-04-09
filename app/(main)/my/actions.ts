@@ -8,6 +8,12 @@ function getText(value: FormDataEntryValue | null) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+function getNullableDate(value: FormDataEntryValue | null) {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed ? trimmed : null
+}
+
 function goWithMessage(path: string, message: string): never {
   redirect(`${path}?message=${encodeURIComponent(message)}`)
 }
@@ -26,10 +32,10 @@ export async function updateMyProfile(formData: FormData) {
   const name = getText(formData.get('name'))
   const nickname = getText(formData.get('nickname'))
   const bio = getText(formData.get('bio'))
-  const birthDate = formData.get('birth_date')?.toString() || null
+  const birthDate = getNullableDate(formData.get('birth_date'))
   const rawUserType = getText(formData.get('user_type'))
-  const enlistmentDate = getText(formData.get('enlistment_date'))
-  const dischargeDate = getText(formData.get('discharge_date'))
+  const enlistmentDate = getNullableDate(formData.get('enlistment_date'))
+  const dischargeDate = getNullableDate(formData.get('discharge_date'))
   const militaryUnit = getText(formData.get('military_unit'))
 
   if (!name) {
@@ -72,8 +78,8 @@ export async function updateMyProfile(formData: FormData) {
     bio: bio || null,
     birth_date: birthDate,
     user_type: nextUserType,
-    enlistment_date: nextUserType === 'soldier' ? enlistmentDate || null : null,
-    discharge_date: nextUserType === 'soldier' ? dischargeDate || null : null,
+    enlistment_date: nextUserType === 'soldier' ? enlistmentDate : null,
+    discharge_date: nextUserType === 'soldier' ? dischargeDate : null,
     military_unit: nextUserType === 'soldier' ? militaryUnit || null : null,
     updated_at: new Date().toISOString(),
   }
@@ -89,7 +95,10 @@ export async function updateMyProfile(formData: FormData) {
     goWithMessage('/my/edit', `프로필 수정 실패: ${error.message}`)
   }
 
+  revalidatePath('/home')
   revalidatePath('/my')
   revalidatePath('/my/edit')
+  revalidatePath('/calendar')
+
   redirect('/my')
 }
