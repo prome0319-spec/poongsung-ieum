@@ -34,6 +34,16 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
             placeholder="닉네임"
             required
           />
+          
+          <div className="field">
+            <label htmlFor="birth_date">생일</label>
+            <input
+              id="birth_date"
+              name="birth_date"
+              type="date"
+              className="input"
+            />
+          </div>
 
           <select
             className="select"

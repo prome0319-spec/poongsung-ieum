@@ -97,6 +97,7 @@ export async function saveOnboarding(formData: FormData) {
   const nickname = getString(formData, 'nickname')
   const bio = getString(formData, 'bio')
   const userType = getString(formData, 'user_type')
+  const birthDate = formData.get('birth_date')?.toString() || null
 
   if (!name || !nickname || !userType) {
     redirect('/onboarding?message=이름, 닉네임, 사용자 유형은 필수입니다')
@@ -117,6 +118,7 @@ export async function saveOnboarding(formData: FormData) {
     nickname,
     user_type: userType,
     bio: bio || null,
+    birth_date: birthDate,
     enlistment_date: userType === 'soldier' ? enlistmentDate : null,
     discharge_date: userType === 'soldier' ? dischargeDate : null,
     military_unit: userType === 'soldier' ? militaryUnit : null,

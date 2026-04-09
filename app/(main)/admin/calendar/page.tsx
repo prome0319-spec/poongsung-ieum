@@ -296,6 +296,58 @@ export default async function AdminCalendarPage() {
                 }}
               />
             </div>
+
+            <section className="stack" style={{ marginTop: 12 }}>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input type="checkbox" name="is_recurring" />
+                반복 일정으로 등록
+              </label>
+
+              <div className="field">
+                <label htmlFor="recurrence_type">반복 유형</label>
+                <select
+                  id="recurrence_type"
+                  name="recurrence_type"
+                  className="input"
+                  defaultValue=""
+                >
+                  <option value="">반복 안 함</option>
+                  <option value="weekly">매주</option>
+                </select>
+              </div>
+
+              <div className="field">
+                <label htmlFor="recurrence_day_of_week">반복 요일</label>
+                <select
+                  id="recurrence_day_of_week"
+                  name="recurrence_day_of_week"
+                  className="input"
+                  defaultValue="0"
+                >
+                  <option value="0">일요일</option>
+                  <option value="1">월요일</option>
+                  <option value="2">화요일</option>
+                  <option value="3">수요일</option>
+                  <option value="4">목요일</option>
+                  <option value="5">금요일</option>
+                  <option value="6">토요일</option>
+                </select>
+              </div>
+
+              <div className="field">
+                <label htmlFor="recurrence_end_date">반복 종료일</label>
+                <input
+                  id="recurrence_end_date"
+                  name="recurrence_end_date"
+                  type="date"
+                  className="input"
+                />
+              </div>
+
+              <p style={{ color: '#666', fontSize: 13 }}>
+                반복 일정일 때는 시작일시/종료일시의 시간값을 기준으로 매주 일정이 만들어집니다.
+              </p>
+            </section>
           </div>
 
           <div>

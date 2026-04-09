@@ -26,6 +26,7 @@ export async function updateMyProfile(formData: FormData) {
   const name = getText(formData.get('name'))
   const nickname = getText(formData.get('nickname'))
   const bio = getText(formData.get('bio'))
+  const birthDate = formData.get('birth_date')?.toString() || null
   const rawUserType = getText(formData.get('user_type'))
   const enlistmentDate = getText(formData.get('enlistment_date'))
   const dischargeDate = getText(formData.get('discharge_date'))
@@ -69,6 +70,7 @@ export async function updateMyProfile(formData: FormData) {
     name,
     nickname,
     bio: bio || null,
+    birth_date: birthDate,
     user_type: nextUserType,
     enlistment_date: nextUserType === 'soldier' ? enlistmentDate || null : null,
     discharge_date: nextUserType === 'soldier' ? dischargeDate || null : null,

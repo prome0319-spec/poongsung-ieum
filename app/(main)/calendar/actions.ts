@@ -8,6 +8,44 @@ type UserType = 'soldier' | 'general' | 'admin'
 type ScheduleCategory = 'worship' | 'meeting' | 'event' | 'service' | 'general'
 type Audience = 'all' | 'soldier' | 'general'
 
+function extractTimeFromDateTimeLocal(value: string | null) {
+  if (!value) return null
+
+  const timePart = value.split('T')[1]
+  if (!timePart) return null
+
+  return timePart.length === 5 ? `${timePart}:00` : timePart
+}
+
+function parseRecurringFields(
+  formData: FormData,
+  startAt: string | null,
+  endAt: string | null
+) {
+  const isRecurring = formData.get('is_recurring') === 'on'
+  const recurrenceType = formData.get('recurrence_type')?.toString() || null
+  const recurrenceDayOfWeekRaw =
+    formData.get('recurrence_day_of_week')?.toString() || ''
+  const recurrenceEndDate =
+    formData.get('recurrence_end_date')?.toString() || null
+
+  return {
+    is_recurring: isRecurring,
+    recurrence_type: isRecurring ? recurrenceType : null,
+    recurrence_day_of_week:
+      isRecurring && recurrenceDayOfWeekRaw !== ''
+        ? Number(recurrenceDayOfWeekRaw)
+        : null,
+    recurrence_end_date: isRecurring ? recurrenceEndDate : null,
+    base_start_time: isRecurring
+      ? extractTimeFromDateTimeLocal(startAt)
+      : null,
+    base_end_time: isRecurring
+      ? extractTimeFromDateTimeLocal(endAt)
+      : null,
+  }
+}
+
 function toText(value: FormDataEntryValue | null) {
   return String(value ?? '').trim()
 }
@@ -86,6 +124,10 @@ export async function createSchedule(formData: FormData) {
   const audience = normalizeAudience(toText(formData.get('audience')))
   const startAt = datetimeLocalToIso(toText(formData.get('start_at')))
   const endAt = datetimeLocalToIso(toText(formData.get('end_at')))
+  const rawstartAt = formData.get('start_at')?.toString() || null
+  const rawendAt = formData.get('end_at')?.toString() || null
+
+  const recurringFields = parseRecurringFields(formData, rawstartAt, rawendAt)
 
   if (!title || !startAt || !endAt) {
     redirect('/admin/calendar?error=required_fields_missing')
@@ -104,6 +146,7 @@ export async function createSchedule(formData: FormData) {
     start_at: startAt,
     end_at: endAt,
     created_by: user.id,
+    ...recurringFields,
   })
 
   if (error) {
@@ -127,6 +170,10 @@ export async function updateSchedule(formData: FormData) {
   const audience = normalizeAudience(toText(formData.get('audience')))
   const startAt = datetimeLocalToIso(toText(formData.get('start_at')))
   const endAt = datetimeLocalToIso(toText(formData.get('end_at')))
+  const rawstartAt = formData.get('start_at')?.toString() || null
+  const rawendAt = formData.get('end_at')?.toString() || null
+
+  const recurringFields = parseRecurringFields(formData, rawstartAt, rawendAt)
 
   if (!scheduleId) {
     redirect('/admin/calendar?error=schedule_not_found')
@@ -151,6 +198,7 @@ export async function updateSchedule(formData: FormData) {
       start_at: startAt,
       end_at: endAt,
       updated_at: new Date().toISOString(),
+      ...recurringFields,
     })
     .eq('id', scheduleId)
 

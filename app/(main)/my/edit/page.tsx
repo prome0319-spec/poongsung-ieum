@@ -6,6 +6,20 @@ type PageProps = {
   searchParams: Promise<{ message?: string }>
 }
 
+type ProfileRow = {
+  id: string
+  email: string
+  name: string
+  nickname: string | null
+  user_type: 'soldier' | 'general' | 'admin'
+  bio: string | null
+  birth_date: string | null
+  enlistment_date: string | null
+  discharge_date: string | null
+  military_unit: string | null
+  onboarding_completed: boolean
+}
+
 export default async function MyEditPage({ searchParams }: PageProps) {
   const { message } = await searchParams
   const supabase = await createClient()
@@ -21,7 +35,7 @@ export default async function MyEditPage({ searchParams }: PageProps) {
   const { data: profile } = await supabase
     .from('profiles')
     .select(
-      'id, email, name, nickname, user_type, bio, enlistment_date, discharge_date, military_unit, onboarding_completed'
+      'id, email, name, nickname, user_type, bio, birth_date, enlistment_date, discharge_date, military_unit, onboarding_completed'
     )
     .eq('id', user.id)
     .single()
@@ -75,6 +89,17 @@ export default async function MyEditPage({ searchParams }: PageProps) {
               placeholder="닉네임을 입력해 주세요"
             />
           </label>
+          
+          <div className="field">
+            <label htmlFor="birth_date">생일</label>
+            <input
+              id="birth_date"
+              name="birth_date"
+              type="date"
+              className="input"
+              defaultValue={profile.birth_date ?? ''}
+            />
+          </div>
 
           {!isAdmin ? (
             <label className="stack">

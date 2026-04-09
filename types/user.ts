@@ -7,6 +7,7 @@ export type AppProfile = {
   nickname: string
   user_type: UserType
   bio: string | null
+  birth_date: string | null
   enlistment_date: string | null
   discharge_date: string | null
   military_unit: string | null

@@ -1,6 +1,11 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import {
+  buildBirthdayEvents,
+  buildWeeklyRecurringEvents,
+  sortCalendarEvents,
+} from '@/lib/calendar-events'
 
 type UserType = 'soldier' | 'general' | 'admin'
 type ScheduleCategory = 'worship' | 'meeting' | 'event' | 'service' | 'general'
@@ -15,6 +20,14 @@ type ScheduleRow = {
   audience: Audience
   start_at: string
   end_at: string
+}
+
+type CurrentProfileRow = {
+  id: string
+  name: string | null
+  nickname: string | null
+  birth_date: string | null
+  user_type: UserType | null
 }
 
 const SEOUL_TZ = 'Asia/Seoul'
@@ -184,13 +197,20 @@ export default async function CalendarPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, user_type')
+    .select('id, name, nickname, birth_date, user_type')
     .eq('id', user.id)
-    .maybeSingle()
+    .eq('onboarding_completed', true)
+    .maybeSingle() as {data: CurrentProfileRow | null }
 
-  const userType = (profile?.user_type as UserType | null) ?? 'general'
+  const userType = profile?.user_type ?? 'general'
   const visibleAudiences =
     userType === 'admin' ? ['all', 'soldier', 'general'] : ['all', userType]
+
+  const { data: birthdayProfiles } = await supabase
+    .from('profiles')
+    .select('id, name, nickname, birth_date')
+    .eq('onboarding_completed', true)
+    .not('birth_date', 'is', null)
 
   const monthStart = parseMonthKey(monthKey)
   const nextMonthStart = parseMonthKey(monthKey)
@@ -205,7 +225,7 @@ export default async function CalendarPage({
       supabase
         .from('schedules')
         .select(
-          'id, title, description, location, category, audience, start_at, end_at'
+          'id, title, description, location, category, audience, start_at, end_at, is_recurring, recurrence_type, recurrence_day_of_week, recurrence_end_date, base_start_time, base_end_time'
         )
         .in('audience', visibleAudiences)
         .lt('start_at', nextMonthStartIso)
@@ -214,7 +234,7 @@ export default async function CalendarPage({
       supabase
         .from('schedules')
         .select(
-          'id, title, description, location, category, audience, start_at, end_at'
+          'id, title, description, location, category, audience, start_at, end_at, is_recurring, recurrence_type, recurrence_day_of_week, recurrence_end_date, base_start_time, base_end_time'
         )
         .in('audience', visibleAudiences)
         .gte('end_at', nowIso)

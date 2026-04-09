@@ -15,6 +15,12 @@ type ScheduleRow = {
   audience: Audience
   start_at: string
   end_at: string
+  is_recurring: boolean
+  recurrence_type: 'weekly' | null
+  recurrence_day_of_week: number | null
+  recurrence_end_date: string | null
+  base_start_time: string | null
+  base_end_time: string | null
 }
 
 const SEOUL_TZ = 'Asia/Seoul'
@@ -70,7 +76,7 @@ export default async function AdminCalendarEditPage({
   const { data: scheduleData } = await supabase
     .from('schedules')
     .select(
-      'id, title, description, location, category, audience, start_at, end_at'
+      'id, title, description, location, category, audience, start_at, end_atis_recurring, recurrence_type, recurrence_day_of_week, recurrence_end_date, base_start_time, base_end_time'
     )
     .eq('id', scheduleId)
     .maybeSingle()
@@ -276,6 +282,59 @@ export default async function AdminCalendarEditPage({
                 }}
               />
             </div>
+
+            <section className="stack" style={{ marginTop: 12 }}>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  name="is_recurring"
+                  defaultChecked={schedule.is_recurring}
+                />
+                반복 일정으로 등록
+              </label>
+
+              <div className="field">
+                <label htmlFor="recurrence_type">반복 유형</label>
+                <select
+                  id="recurrence_type"
+                  name="recurrence_type"
+                  className="input"
+                  defaultValue={schedule.recurrence_type ?? ''}
+                >
+                  <option value="">반복 안 함</option>
+                  <option value="weekly">매주</option>
+                </select>
+              </div>
+
+              <div className="field">
+                <label htmlFor="recurrence_day_of_week">반복 요일</label>
+                <select
+                  id="recurrence_day_of_week"
+                  name="recurrence_day_of_week"
+                  className="input"
+                  defaultValue={String(schedule.recurrence_day_of_week ?? 0)}
+                >
+                  <option value="0">일요일</option>
+                  <option value="1">월요일</option>
+                  <option value="2">화요일</option>
+                  <option value="3">수요일</option>
+                  <option value="4">목요일</option>
+                  <option value="5">금요일</option>
+                  <option value="6">토요일</option>
+                </select>
+              </div>
+
+              <div className="field">
+                <label htmlFor="recurrence_end_date">반복 종료일</label>
+                <input
+                  id="recurrence_end_date"
+                  name="recurrence_end_date"
+                  type="date"
+                  className="input"
+                  defaultValue={schedule.recurrence_end_date ?? ''}
+                />
+              </div>
+            </section>
           </div>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
