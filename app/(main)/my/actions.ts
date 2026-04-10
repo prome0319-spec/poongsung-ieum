@@ -100,5 +100,5 @@ export async function updateMyProfile(formData: FormData) {
   revalidatePath('/my/edit')
   revalidatePath('/calendar')
 
-  redirect('/my')
+  goWithMessage('/my', '프로필이 저장되었습니다.')
 }

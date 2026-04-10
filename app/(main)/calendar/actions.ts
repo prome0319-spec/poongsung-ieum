@@ -8,6 +8,11 @@ type UserType = 'soldier' | 'general' | 'admin'
 type ScheduleCategory = 'worship' | 'meeting' | 'event' | 'service' | 'general'
 type Audience = 'all' | 'soldier' | 'general'
 
+function goWithMessage(path: string, message: string): never {
+  const separator = path.includes('?') ? '&' : '?'
+  redirect(`${path}${separator}message=${encodeURIComponent(message)}`)
+}
+
 function extractTimeFromDateTimeLocal(value: string | null) {
   if (!value) return null
 
@@ -192,7 +197,7 @@ export async function createSchedule(formData: FormData) {
   revalidatePath('/calendar')
   revalidatePath('/admin/calendar')
 
-  redirect('/admin/calendar?success=created')
+  goWithMessage('/admin/calendar', '일정이 등록되었습니다.')
 }
 
 export async function updateSchedule(formData: FormData) {
@@ -251,7 +256,7 @@ export async function updateSchedule(formData: FormData) {
   revalidatePath('/admin/calendar')
   revalidatePath(`/admin/calendar/${scheduleId}/edit`)
 
-  redirect(`/calendar/${scheduleId}`)
+  goWithMessage(`/calendar/${scheduleId}`, '일정이 수정되었습니다.')
 }
 
 export async function deleteSchedule(formData: FormData) {
@@ -275,5 +280,5 @@ export async function deleteSchedule(formData: FormData) {
   revalidatePath(`/calendar/${scheduleId}`)
   revalidatePath('/admin/calendar')
 
-  redirect('/admin/calendar?success=deleted')
+  goWithMessage('/admin/calendar', '일정이 삭제되었습니다.')
 }

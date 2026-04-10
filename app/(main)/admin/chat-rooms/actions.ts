@@ -7,6 +7,11 @@ import { createClient } from '@/lib/supabase/server'
 type Audience = 'all' | 'soldier' | 'general'
 type RoomType = 'group' | 'announcement'
 
+function goWithMessage(path: string, message: string): never {
+  const separator = path.includes('?') ? '&' : '?'
+  redirect(`${path}${separator}message=${encodeURIComponent(message)}`)
+}
+
 async function requireAdmin() {
   const supabase = await createClient()
 
@@ -16,13 +21,13 @@ async function requireAdmin() {
   } = await supabase.auth.getUser()
 
   if (userError || !user) {
-    redirect('/login?message=로그인이 필요합니다.')
+    goWithMessage('/login', '로그인이 필요합니다.')
   }
 
   const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin')
 
   if (adminError || !isAdmin) {
-    redirect('/home?message=관리자만 접근할 수 있습니다.')
+    goWithMessage('/home', '관리자만 접근할 수 있습니다.')
   }
 
   return { supabase, user }
@@ -59,7 +64,7 @@ export async function createChatRoom(formData: FormData) {
   const sortOrder = parseSortOrder(formData.get('sort_order'))
 
   if (!title) {
-    redirect('/admin/chat-rooms?message=채팅방 이름을 입력해주세요.')
+    goWithMessage('/admin/chat-rooms', '채팅방 이름을 입력해 주세요.')
   }
 
   const { error } = await supabase.from('chat_rooms').insert({
@@ -73,12 +78,13 @@ export async function createChatRoom(formData: FormData) {
   })
 
   if (error) {
-    redirect(`/admin/chat-rooms?message=${encodeURIComponent(error.message)}`)
+    goWithMessage('/admin/chat-rooms', `채팅방 생성 실패: ${error.message}`)
   }
 
   revalidatePath('/admin/chat-rooms')
   revalidatePath('/chat')
-  redirect('/admin/chat-rooms?message=채팅방이 생성되었습니다.')
+
+  goWithMessage('/admin/chat-rooms', '채팅방이 생성되었습니다.')
 }
 
 export async function updateChatRoom(formData: FormData) {
@@ -94,11 +100,11 @@ export async function updateChatRoom(formData: FormData) {
   const sortOrder = parseSortOrder(formData.get('sort_order'))
 
   if (!id) {
-    redirect('/admin/chat-rooms?message=수정할 채팅방 ID가 없습니다.')
+    goWithMessage('/admin/chat-rooms', '수정할 채팅방 ID가 없습니다.')
   }
 
   if (!title) {
-    redirect('/admin/chat-rooms?message=채팅방 이름을 입력해주세요.')
+    goWithMessage('/admin/chat-rooms', '채팅방 이름을 입력해 주세요.')
   }
 
   const { error } = await supabase
@@ -115,13 +121,14 @@ export async function updateChatRoom(formData: FormData) {
     .eq('id', id)
 
   if (error) {
-    redirect(`/admin/chat-rooms?message=${encodeURIComponent(error.message)}`)
+    goWithMessage('/admin/chat-rooms', `채팅방 수정 실패: ${error.message}`)
   }
 
   revalidatePath('/admin/chat-rooms')
   revalidatePath('/chat')
   revalidatePath(`/chat/${id}`)
-  redirect('/admin/chat-rooms?message=채팅방이 수정되었습니다.')
+
+  goWithMessage('/admin/chat-rooms', '채팅방이 수정되었습니다.')
 }
 
 export async function deleteChatRoom(formData: FormData) {
@@ -130,16 +137,17 @@ export async function deleteChatRoom(formData: FormData) {
   const id = String(formData.get('id') ?? '').trim()
 
   if (!id) {
-    redirect('/admin/chat-rooms?message=삭제할 채팅방 ID가 없습니다.')
+    goWithMessage('/admin/chat-rooms', '삭제할 채팅방 ID가 없습니다.')
   }
 
   const { error } = await supabase.from('chat_rooms').delete().eq('id', id)
 
   if (error) {
-    redirect(`/admin/chat-rooms?message=${encodeURIComponent(error.message)}`)
+    goWithMessage('/admin/chat-rooms', `채팅방 삭제 실패: ${error.message}`)
   }
 
   revalidatePath('/admin/chat-rooms')
   revalidatePath('/chat')
-  redirect('/admin/chat-rooms?message=채팅방이 삭제되었습니다.')
+
+  goWithMessage('/admin/chat-rooms', '채팅방이 삭제되었습니다.')
 }

@@ -1,16 +1,17 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../lib/supabase/server'
-import { revalidatePath } from 'next/cache'
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key)
   return typeof value === 'string' ? value.trim() : ''
 }
 
-function goWithMessage(path: string, message: string) {
-  redirect(`${path}?message=${encodeURIComponent(message)}`)
+function goWithMessage(path: string, message: string): never {
+  const separator = path.includes('?') ? '&' : '?'
+  redirect(`${path}${separator}message=${encodeURIComponent(message)}`)
 }
 
 export async function login(formData: FormData) {
@@ -18,7 +19,7 @@ export async function login(formData: FormData) {
   const password = getString(formData, 'password')
 
   if (!email || !password) {
-    goWithMessage('/login', '이메일과 비밀번호를 입력하세요')
+    goWithMessage('/login', '이메일과 비밀번호를 입력하세요.')
   }
 
   try {
@@ -33,10 +34,11 @@ export async function login(formData: FormData) {
       goWithMessage('/login', error.message)
     }
 
-    redirect('/home')
+    revalidatePath('/', 'layout')
+    goWithMessage('/home', '로그인되었습니다.')
   } catch (error) {
     console.error('login action error:', error)
-    goWithMessage('/login', '로그인 처리 중 서버 오류가 발생했습니다')
+    goWithMessage('/login', '로그인 처리 중 서버 오류가 발생했습니다.')
   }
 }
 
@@ -45,7 +47,7 @@ export async function signup(formData: FormData) {
   const password = getString(formData, 'password')
 
   if (!email || !password) {
-    goWithMessage('/signup', '이메일과 비밀번호를 입력하세요')
+    goWithMessage('/signup', '이메일과 비밀번호를 입력하세요.')
   }
 
   try {
@@ -61,13 +63,14 @@ export async function signup(formData: FormData) {
     }
 
     if (!data.session) {
-      goWithMessage('/login', '가입이 완료되었습니다. 이메일 인증 후 로그인하세요')
+      goWithMessage('/login', '가입이 완료되었습니다. 이메일 인증 후 로그인하세요.')
     }
 
-    redirect('/onboarding')
+    revalidatePath('/', 'layout')
+    goWithMessage('/onboarding', '회원가입이 완료되었습니다.')
   } catch (error) {
     console.error('signup action error:', error)
-    goWithMessage('/signup', '회원가입 처리 중 서버 오류가 발생했습니다')
+    goWithMessage('/signup', '회원가입 처리 중 서버 오류가 발생했습니다.')
   }
 }
 
@@ -75,11 +78,12 @@ export async function logout() {
   try {
     const supabase = await createClient()
     await supabase.auth.signOut()
+    revalidatePath('/', 'layout')
   } catch (error) {
     console.error('logout action error:', error)
   }
 
-  redirect('/login')
+  goWithMessage('/login', '로그아웃되었습니다.')
 }
 
 export async function saveOnboarding(formData: FormData) {
@@ -90,21 +94,21 @@ export async function saveOnboarding(formData: FormData) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect('/login?message=로그인 후 다시 진행하세요')
+    goWithMessage('/login', '로그인 후 다시 진행하세요.')
   }
 
   const name = getString(formData, 'name')
   const nickname = getString(formData, 'nickname')
   const bio = getString(formData, 'bio')
   const userType = getString(formData, 'user_type')
-  const birthDate = formData.get('birth_date')?.toString() || null
+  const birthDate = getString(formData, 'birth_date') || null
 
   if (!name || !nickname || !userType) {
-    redirect('/onboarding?message=이름, 닉네임, 사용자 유형은 필수입니다')
+    goWithMessage('/onboarding', '이름, 닉네임, 사용자 유형은 필수입니다.')
   }
 
   if (userType !== 'soldier' && userType !== 'general') {
-    redirect('/onboarding?message=올바른 사용자 유형을 선택하세요')
+    goWithMessage('/onboarding', '올바른 사용자 유형을 선택하세요.')
   }
 
   const enlistmentDate = getString(formData, 'enlistment_date') || null
@@ -130,9 +134,13 @@ export async function saveOnboarding(formData: FormData) {
     .upsert(profile, { onConflict: 'id' })
 
   if (error) {
-    redirect(`/onboarding?message=${encodeURIComponent(error.message)}`)
+    goWithMessage('/onboarding', error.message)
   }
 
   revalidatePath('/', 'layout')
-  redirect('/home')
+  revalidatePath('/home')
+  revalidatePath('/my')
+  revalidatePath('/calendar')
+
+  goWithMessage('/home', '온보딩이 완료되었습니다.')
 }

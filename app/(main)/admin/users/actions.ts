@@ -10,6 +10,11 @@ function toText(value: FormDataEntryValue | null) {
   return String(value ?? '').trim()
 }
 
+function goWithMessage(path: string, message: string): never {
+  const separator = path.includes('?') ? '&' : '?'
+  redirect(`${path}${separator}message=${encodeURIComponent(message)}`)
+}
+
 async function requireAdmin() {
   const supabase = await createClient()
 
@@ -70,7 +75,7 @@ export async function upsertAdminNote(formData: FormData) {
   revalidatePath('/admin/users')
   revalidatePath(`/admin/users/${targetUserId}`)
 
-  redirect(`${returnTo}?success=note_saved`)
+  goWithMessage(returnTo, '메모가 저장되었습니다.')
 }
 
 export async function deleteAdminNote(formData: FormData) {
@@ -96,5 +101,5 @@ export async function deleteAdminNote(formData: FormData) {
   revalidatePath('/admin/users')
   revalidatePath(`/admin/users/${targetUserId}`)
 
-  redirect(`${returnTo}?success=note_deleted`)
+  goWithMessage(returnTo, '메모가 삭제되었습니다.')
 }

@@ -15,6 +15,11 @@ function isAdmin(userType: UserType | null) {
   return userType === 'admin'
 }
 
+function goWithMessage(path: string, message: string): never {
+  const separator = path.includes('?') ? '&' : '?'
+  redirect(`${path}${separator}message=${encodeURIComponent(message)}`)
+}
+
 function normalizeCategoryByRole(
   rawValue: string,
   userType: UserType | null
@@ -94,10 +99,11 @@ export async function createPost(formData: FormData) {
   }
 
   revalidatePath('/community')
+  revalidatePath('/community/write')
   revalidatePath(`/community/${data.id}`)
   revalidatePath('/home')
 
-  redirect(`/community/${data.id}`)
+  goWithMessage(`/community/${data.id}`, '게시글이 등록되었습니다.')
 }
 
 export async function addComment(formData: FormData) {
@@ -127,7 +133,7 @@ export async function addComment(formData: FormData) {
   revalidatePath('/community')
   revalidatePath(`/community/${postId}`)
 
-  redirect(`/community/${postId}`)
+  goWithMessage(`/community/${postId}`, '댓글이 등록되었습니다.')
 }
 
 export async function updatePost(formData: FormData) {
@@ -185,7 +191,7 @@ export async function updatePost(formData: FormData) {
   revalidatePath(`/community/${postId}/edit`)
   revalidatePath('/home')
 
-  redirect(`/community/${postId}`)
+  goWithMessage(`/community/${postId}`, '게시글이 수정되었습니다.')
 }
 
 export async function deletePost(formData: FormData) {
@@ -223,5 +229,5 @@ export async function deletePost(formData: FormData) {
   revalidatePath(`/community/${postId}`)
   revalidatePath('/home')
 
-  redirect('/community')
+  goWithMessage('/community', '게시글이 삭제되었습니다.')
 }

@@ -1,5 +1,6 @@
 import './globals.css'
 import type { Metadata } from 'next'
+import ActionAlert from '@/components/common/ActionAlert'
 
 export const metadata: Metadata = {
   title: '풍성이음',
@@ -13,7 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        <ActionAlert />
+        {children}
+      </body>
     </html>
   )
 }

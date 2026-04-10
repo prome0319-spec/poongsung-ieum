@@ -87,14 +87,37 @@ function parseBirthDate(value: string | null) {
   }
 }
 
+function resolveBirthdayDayForDisplay(
+  birthMonth: number,
+  birthDay: number,
+  year: number,
+  monthIndex: number
+) {
+  const currentMonth = monthIndex + 1
+
+  if (birthMonth !== currentMonth) {
+    return null
+  }
+
+  const lastDay = getMonthLastDay(year, monthIndex)
+
+  // 2월 29일 생일은 윤년이 아닌 해에는 2월 28일에 표시
+  if (birthMonth === 2 && birthDay === 29 && lastDay === 28) {
+    return 28
+  }
+
+  if (birthDay > lastDay) {
+    return null
+  }
+
+  return birthDay
+}
+
 export function buildBirthdayEvents(
   profiles: BirthdayProfile[],
   year: number,
   monthIndex: number
 ): CalendarEvent[] {
-  const currentMonth = monthIndex + 1
-  const lastDay = getMonthLastDay(year, monthIndex)
-
   return profiles
     .map((profile) => {
       const parsedBirthDate = parseBirthDate(profile.birth_date)
@@ -104,20 +127,18 @@ export function buildBirthdayEvents(
       }
 
       const { birthMonth, birthDay } = parsedBirthDate
+      const displayDay = resolveBirthdayDayForDisplay(
+        birthMonth,
+        birthDay,
+        year,
+        monthIndex
+      )
 
-      // 생일은 "매년 같은 월/일"에만 표시되어야 하므로
-      // 현재 보고 있는 달과 생일 월이 다르면 생성하지 않는다.
-      if (birthMonth !== currentMonth) {
+      if (!displayDay) {
         return null
       }
 
-      // 2월 29일처럼 어떤 해에는 존재하지 않을 수 있으므로
-      // 현재 연도의 해당 달 마지막 일자를 넘으면 표시하지 않는다.
-      if (birthDay > lastDay) {
-        return null
-      }
-
-      const dateKey = makeDateKey(year, monthIndex, birthDay)
+      const dateKey = makeDateKey(year, monthIndex, displayDay)
 
       return {
         id: `birthday-${profile.id}-${dateKey}`,
