@@ -1,16 +1,20 @@
 'use client'
 
 import { useEffect } from 'react'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 
 export default function ActionAlert() {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
 
   useEffect(() => {
-    const message = searchParams.get('message')
+    if (!pathname) {
+      return
+    }
 
-    if (!message || !pathname) {
+    const params = new URLSearchParams(window.location.search)
+    const message = params.get('message')
+
+    if (!message) {
       return
     }
 
@@ -22,12 +26,10 @@ export default function ActionAlert() {
 
     sessionStorage.setItem(dedupeKey, 'shown')
 
-    const nextParams = new URLSearchParams(searchParams.toString())
-    nextParams.delete('message')
+    params.delete('message')
 
-    const nextUrl = nextParams.toString()
-      ? `${pathname}?${nextParams.toString()}`
-      : pathname
+    const nextQuery = params.toString()
+    const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname
 
     window.history.replaceState(null, '', nextUrl)
     window.alert(message)
@@ -35,7 +37,7 @@ export default function ActionAlert() {
     window.setTimeout(() => {
       sessionStorage.removeItem(dedupeKey)
     }, 0)
-  }, [pathname, searchParams])
+  }, [pathname])
 
   return null
 }
