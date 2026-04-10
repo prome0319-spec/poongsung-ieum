@@ -2,12 +2,6 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-type PageProps = {
-  searchParams: Promise<{
-    message?: string | string[]
-  }>
-}
-
 type Profile = {
   id: string
   name: string | null
@@ -54,11 +48,6 @@ type MessagePreview = {
   created_at: string
 }
 
-function readMessage(value: string | string[] | undefined) {
-  if (Array.isArray(value)) return value[0] ?? ''
-  return value ?? ''
-}
-
 function getDisplayName(profile: Pick<Profile, 'name' | 'nickname'>) {
   return (profile.nickname || profile.name || '이름없음').trim()
 }
@@ -92,9 +81,24 @@ function getPostCategoryLabel(category: PostPreview['category']) {
 }
 
 function formatDate(value: string | null) {
+  if (!value) return '미입력'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '미입력'
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(date)
+}
+
+function formatShortDate(value: string | null) {
   if (!value) return '-'
+
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
+
   return new Intl.DateTimeFormat('ko-KR', {
     month: 'numeric',
     day: 'numeric',
@@ -104,6 +108,7 @@ function formatDate(value: string | null) {
 function formatDateTime(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
+
   return new Intl.DateTimeFormat('ko-KR', {
     month: 'numeric',
     day: 'numeric',
@@ -112,34 +117,100 @@ function formatDateTime(value: string) {
   }).format(date)
 }
 
+function truncateText(value: string | null, maxLength = 44) {
+  if (!value) return ''
+  return value.length > maxLength ? `${value.slice(0, maxLength)}…` : value
+}
+
 function getHomeIntro(profile: Profile) {
   if (profile.user_type === 'soldier') {
     return {
-      title: '군지음이 홈',
+      title: '군 생활 속에서도 공동체와 연결되는 홈',
       description:
-        '군 생활 중에도 공동체와 연결될 수 있도록 최근 일정, 공지, 채팅 흐름을 한 번에 볼 수 있게 구성했습니다.',
+        '예배 일정, 공지, 채팅 흐름을 먼저 보여주어 필요한 정보를 빠르게 확인할 수 있도록 정리했습니다.',
     }
   }
 
   if (profile.user_type === 'admin') {
     return {
-      title: '관리자 홈',
+      title: '운영 흐름을 빠르게 점검하는 관리자 홈',
       description:
-        '일정 관리, 사용자 관리, 커뮤니티와 채팅 흐름을 빠르게 점검할 수 있도록 바로가기 중심으로 구성했습니다.',
+        '일정 관리, 사용자 관리, 커뮤니티와 채팅 흐름을 한 화면에서 바로 확인할 수 있게 구성했습니다.',
     }
   }
 
   return {
-    title: '지음이 홈',
+    title: '공동체 연결을 자연스럽게 이어주는 홈',
     description:
-      '예배와 모임, 커뮤니티와 채팅을 자연스럽게 이어서 사용할 수 있도록 최근 정보를 먼저 보여주는 홈입니다.',
+      '예배와 모임, 커뮤니티와 채팅의 최근 흐름을 먼저 보여주어 앱을 열자마자 필요한 곳으로 이동할 수 있습니다.',
   }
 }
 
-export default async function HomePage({ searchParams }: PageProps) {
-  const params = await searchParams
-  const message = readMessage(params.message)
+function getDdayLabel(dischargeDate: string | null) {
+  if (!dischargeDate) return '전역일 미입력'
 
+  const target = new Date(dischargeDate)
+  if (Number.isNaN(target.getTime())) return '전역일 미입력'
+
+  const today = new Date()
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const startOfTarget = new Date(
+    target.getFullYear(),
+    target.getMonth(),
+    target.getDate()
+  )
+
+  const diffMs = startOfTarget.getTime() - startOfToday.getTime()
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffDays > 0) return `전역까지 D-${diffDays}`
+  if (diffDays === 0) return '전역일입니다'
+  return '전역일이 지났습니다'
+}
+
+function SectionHeader({
+  title,
+  href,
+  hrefLabel,
+}: {
+  title: string
+  href: string
+  hrefLabel: string
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px',
+        marginBottom: '6px',
+      }}
+    >
+      <h2
+        className="section-title"
+        style={{
+          margin: 0,
+        }}
+      >
+        {title}
+      </h2>
+
+      <Link
+        href={href}
+        style={{
+          fontSize: '13px',
+          fontWeight: 700,
+          color: '#2f6bff',
+        }}
+      >
+        {hrefLabel}
+      </Link>
+    </div>
+  )
+}
+
+export default async function HomePage() {
   const supabase = await createClient()
 
   const {
@@ -199,7 +270,7 @@ export default async function HomePage({ searchParams }: PageProps) {
   const rooms = (roomData ?? []) as RoomPreview[]
   const roomIds = rooms.map((room) => room.id)
 
-  let latestMessagesByRoomId = new Map<string, MessagePreview>()
+  const latestMessagesByRoomId = new Map<string, MessagePreview>()
 
   if (roomIds.length > 0) {
     const { data: messageData } = await supabase
@@ -231,121 +302,307 @@ export default async function HomePage({ searchParams }: PageProps) {
         sortBase: latestMessage?.created_at ?? room.created_at,
       }
     })
-    .sort((a, b) => {
-      return (
-        new Date(b.sortBase).getTime() - new Date(a.sortBase).getTime()
-      )
-    })
+    .sort((a, b) => new Date(b.sortBase).getTime() - new Date(a.sortBase).getTime())
     .slice(0, 3)
 
   const intro = getHomeIntro(profile)
   const displayName = getDisplayName(profile)
 
+  const quickLinks =
+    profile.user_type === 'admin'
+      ? [
+          { href: '/admin/calendar', title: '일정 관리', description: '관리자 일정 등록·수정' },
+          { href: '/admin/users', title: '사용자 관리', description: '회원 정보와 메모 확인' },
+          { href: '/community', title: '커뮤니티', description: '최근 글과 공지 확인' },
+          { href: '/chat', title: '채팅', description: '공지방과 소통방 확인' },
+        ]
+      : [
+          { href: '/chat', title: '채팅', description: '소통방과 최근 대화 보기' },
+          { href: '/community', title: '커뮤니티', description: '공지와 최근 게시글 확인' },
+          { href: '/calendar', title: '캘린더', description: '다가오는 일정 확인' },
+          { href: '/my', title: '마이', description: '내 프로필과 정보 관리' },
+        ]
+
   return (
     <main className="page stack">
-      <section className="card stack">
-        <div className="stack">
-          <p>{getUserTypeLabel(profile.user_type)}</p>
-          <h1>{displayName}님, 반가워요.</h1>
-          <p>{intro.description}</p>
-        </div>
-
-        {message ? <p>{message}</p> : null}
-
+      <section
+        className="card"
+        style={{
+          padding: '22px',
+          overflow: 'hidden',
+          position: 'relative',
+          background:
+            'linear-gradient(135deg, rgba(47,107,255,0.10), rgba(255,255,255,0.98) 45%, rgba(255,255,255,0.94))',
+        }}
+      >
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-            gap: '12px',
+            position: 'absolute',
+            top: '-40px',
+            right: '-30px',
+            width: '150px',
+            height: '150px',
+            borderRadius: '999px',
+            background: 'rgba(47, 107, 255, 0.10)',
+            filter: 'blur(6px)',
+            pointerEvents: 'none',
           }}
-        >
-          <Link href="/chat" className="card">
-            <strong>채팅</strong>
-            <p>소통방으로 바로 이동</p>
-          </Link>
+        />
 
-          <Link href="/community" className="card">
-            <strong>커뮤니티</strong>
-            <p>최근 글 확인하기</p>
-          </Link>
+        <div className="stack" style={{ gap: '16px', position: 'relative' }}>
+          <div className="badge" style={{ width: 'fit-content', marginBottom: 0 }}>
+            {getUserTypeLabel(profile.user_type)}
+          </div>
 
-          <Link href="/calendar" className="card">
-            <strong>캘린더</strong>
-            <p>다가오는 일정 보기</p>
-          </Link>
+          <div className="stack" style={{ gap: '8px' }}>
+            <h1
+              className="page-title"
+              style={{
+                margin: 0,
+                fontSize: '32px',
+              }}
+            >
+              {displayName}님, 반가워요.
+            </h1>
+            <p
+              style={{
+                margin: 0,
+                color: '#475569',
+                lineHeight: 1.7,
+                fontSize: '15px',
+              }}
+            >
+              {intro.title}
+            </p>
+            <p
+              style={{
+                margin: 0,
+                color: '#64748b',
+                lineHeight: 1.7,
+                fontSize: '14px',
+              }}
+            >
+              {intro.description}
+            </p>
+          </div>
 
-          <Link href="/my" className="card">
-            <strong>마이</strong>
-            <p>내 프로필 관리</p>
-          </Link>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gap: '10px',
+            }}
+          >
+            <div
+              style={{
+                padding: '14px',
+                borderRadius: '16px',
+                background: 'rgba(255,255,255,0.76)',
+                border: '1px solid rgba(207,224,255,0.9)',
+              }}
+            >
+              <div className="muted" style={{ marginBottom: '6px' }}>
+                사용자 유형
+              </div>
+              <strong>{getUserTypeLabel(profile.user_type)}</strong>
+            </div>
+
+            <div
+              style={{
+                padding: '14px',
+                borderRadius: '16px',
+                background: 'rgba(255,255,255,0.76)',
+                border: '1px solid rgba(207,224,255,0.9)',
+              }}
+            >
+              <div className="muted" style={{ marginBottom: '6px' }}>
+                예정 일정
+              </div>
+              <strong>{recentSchedules.length}개</strong>
+            </div>
+
+            <div
+              style={{
+                padding: '14px',
+                borderRadius: '16px',
+                background: 'rgba(255,255,255,0.76)',
+                border: '1px solid rgba(207,224,255,0.9)',
+              }}
+            >
+              <div className="muted" style={{ marginBottom: '6px' }}>
+                최근 게시글
+              </div>
+              <strong>{recentPosts.length}개</strong>
+            </div>
+          </div>
         </div>
       </section>
 
       <section className="card stack">
-        <h2>{intro.title}</h2>
+        <SectionHeader title="빠른 이동" href="/home" hrefLabel="홈 새로보기" />
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(148px, 1fr))',
+            gap: '12px',
+          }}
+        >
+          {quickLinks.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="list-item"
+              style={{
+                minHeight: '112px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '12px',
+                  background: 'rgba(47,107,255,0.10)',
+                  border: '1px solid rgba(207,224,255,0.95)',
+                }}
+              />
+              <div className="stack" style={{ gap: '4px' }}>
+                <strong className="list-title" style={{ marginBottom: 0 }}>
+                  {item.title}
+                </strong>
+                <p className="list-meta" style={{ margin: 0 }}>
+                  {item.description}
+                </p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="card stack">
+        <SectionHeader title="내 정보 요약" href="/my" hrefLabel="프로필 보기" />
 
         {profile.user_type === 'soldier' ? (
-          <div className="stack">
-            <p>부대: {profile.military_unit || '미입력'}</p>
-            <p>입대일: {formatDate(profile.enlistment_date)}</p>
-            <p>전역일: {formatDate(profile.discharge_date)}</p>
-            <p>{profile.bio || '소개가 아직 없습니다.'}</p>
+          <div className="info-grid">
+            <div className="list-item">
+              <div className="muted">부대</div>
+              <strong>{profile.military_unit || '미입력'}</strong>
+            </div>
+            <div className="list-item">
+              <div className="muted">전역 상태</div>
+              <strong>{getDdayLabel(profile.discharge_date)}</strong>
+            </div>
+            <div className="list-item">
+              <div className="muted">입대일</div>
+              <strong>{formatDate(profile.enlistment_date)}</strong>
+            </div>
+            <div className="list-item">
+              <div className="muted">전역일</div>
+              <strong>{formatDate(profile.discharge_date)}</strong>
+            </div>
           </div>
         ) : null}
 
         {profile.user_type === 'general' ? (
-          <div className="stack">
-            <p>공동체와 연결되는 핵심 기능을 먼저 배치했습니다.</p>
-            <p>{profile.bio || '소개가 아직 없습니다.'}</p>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <Link href="/community">커뮤니티 보러가기</Link>
-              <Link href="/chat">채팅 보러가기</Link>
+          <div className="stack" style={{ gap: '10px' }}>
+            <div className="list-item">
+              <div className="muted" style={{ marginBottom: '6px' }}>
+                소개
+              </div>
+              <strong style={{ display: 'block', marginBottom: '8px' }}>
+                공동체와 연결되는 기본 홈 구성이 준비되어 있습니다.
+              </strong>
+              <p className="card-text">
+                {profile.bio || '아직 소개를 입력하지 않았습니다. 마이페이지에서 소개를 추가할 수 있습니다.'}
+              </p>
+            </div>
+
+            <div className="button-row">
+              <Link href="/community" className="button secondary">
+                커뮤니티 보기
+              </Link>
+              <Link href="/chat" className="button ghost">
+                채팅 보기
+              </Link>
             </div>
           </div>
         ) : null}
 
         {profile.user_type === 'admin' ? (
-          <div className="stack">
-            <p>관리자 기능으로 바로 이동할 수 있습니다.</p>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <Link href="/admin/calendar">일정 관리</Link>
-              <Link href="/admin/users">사용자 관리</Link>
+          <div className="stack" style={{ gap: '10px' }}>
+            <div className="list-item">
+              <div className="muted" style={{ marginBottom: '6px' }}>
+                관리자 바로가기
+              </div>
+              <strong style={{ display: 'block', marginBottom: '8px' }}>
+                운영에 필요한 핵심 메뉴로 빠르게 이동할 수 있습니다.
+              </strong>
+              <p className="card-text">
+                일정, 사용자, 커뮤니티, 채팅 흐름을 점검하며 공동체 운영을 관리할 수 있습니다.
+              </p>
+            </div>
+
+            <div className="button-row">
+              <Link href="/admin/calendar" className="button secondary">
+                일정 관리
+              </Link>
+              <Link href="/admin/users" className="button ghost">
+                사용자 관리
+              </Link>
             </div>
           </div>
         ) : null}
       </section>
 
       <section className="card stack">
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            gap: '12px',
-            flexWrap: 'wrap',
-          }}
-        >
-          <h2>다가오는 일정</h2>
-          <Link href="/calendar">전체 보기</Link>
-        </div>
+        <SectionHeader title="다가오는 일정" href="/calendar" hrefLabel="전체 보기" />
 
         {recentSchedules.length === 0 ? (
-          <p>예정된 일정이 없습니다.</p>
+          <p className="muted" style={{ margin: 0 }}>
+            예정된 일정이 없습니다.
+          </p>
         ) : (
-          <div className="stack">
+          <div className="list">
             {recentSchedules.map((schedule) => (
               <Link
                 key={schedule.id}
-                href="/calendar"
-                className="card"
-                style={{ border: '1px solid #e5e7eb' }}
+                href={`/calendar/${schedule.id}`}
+                className="list-item"
               >
-                <div className="stack">
-                  <strong>{schedule.title}</strong>
-                  <p>
-                    {getScheduleCategoryLabel(schedule.category)} ·{' '}
-                    {formatDateTime(schedule.start_at)}
-                  </p>
-                  <p>{schedule.location || '장소 미정'}</p>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                  }}
+                >
+                  <div className="stack" style={{ gap: '6px', minWidth: 0 }}>
+                    <span className="badge" style={{ width: 'fit-content', marginBottom: 0 }}>
+                      {getScheduleCategoryLabel(schedule.category)}
+                    </span>
+                    <strong className="list-title" style={{ marginBottom: 0 }}>
+                      {schedule.title}
+                    </strong>
+                    <p className="list-meta" style={{ margin: 0 }}>
+                      {formatDateTime(schedule.start_at)} · {schedule.location || '장소 미정'}
+                    </p>
+                  </div>
+
+                  <div
+                    style={{
+                      minWidth: '52px',
+                      textAlign: 'right',
+                      color: '#64748b',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {formatShortDate(schedule.start_at)}
+                  </div>
                 </div>
               </Link>
             ))}
@@ -354,36 +611,42 @@ export default async function HomePage({ searchParams }: PageProps) {
       </section>
 
       <section className="card stack">
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            gap: '12px',
-            flexWrap: 'wrap',
-          }}
-        >
-          <h2>최근 게시글</h2>
-          <Link href="/community">전체 보기</Link>
-        </div>
+        <SectionHeader title="최근 게시글" href="/community" hrefLabel="전체 보기" />
 
         {recentPosts.length === 0 ? (
-          <p>아직 게시글이 없습니다.</p>
+          <p className="muted" style={{ margin: 0 }}>
+            아직 게시글이 없습니다.
+          </p>
         ) : (
-          <div className="stack">
+          <div className="list">
             {recentPosts.map((post) => (
-              <Link
-                key={post.id}
-                href={`/community/${post.id}`}
-                className="card"
-                style={{ border: '1px solid #e5e7eb' }}
-              >
-                <div className="stack">
-                  <strong>
-                    {post.is_notice ? '[공지] ' : ''}
+              <Link key={post.id} href={`/community/${post.id}`} className="list-item">
+                <div className="stack" style={{ gap: '6px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {post.is_notice ? (
+                      <span
+                        className="badge"
+                        style={{
+                          marginBottom: 0,
+                          background: '#fff1f2',
+                          border: '1px solid #fecdd3',
+                          color: '#be123c',
+                        }}
+                      >
+                        공지
+                      </span>
+                    ) : null}
+
+                    <span className="badge" style={{ width: 'fit-content', marginBottom: 0 }}>
+                      {getPostCategoryLabel(post.category)}
+                    </span>
+                  </div>
+
+                  <strong className="list-title" style={{ marginBottom: 0 }}>
                     {post.title}
                   </strong>
-                  <p>
-                    {getPostCategoryLabel(post.category)} ·{' '}
+
+                  <p className="list-meta" style={{ margin: 0 }}>
                     {formatDateTime(post.created_at)}
                   </p>
                 </div>
@@ -394,40 +657,55 @@ export default async function HomePage({ searchParams }: PageProps) {
       </section>
 
       <section className="card stack">
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            gap: '12px',
-            flexWrap: 'wrap',
-          }}
-        >
-          <h2>최근 채팅 요약</h2>
-          <Link href="/chat">전체 보기</Link>
-        </div>
+        <SectionHeader title="최근 채팅 요약" href="/chat" hrefLabel="전체 보기" />
 
         {recentChats.length === 0 ? (
-          <p>참여 가능한 채팅방이 없습니다.</p>
+          <p className="muted" style={{ margin: 0 }}>
+            참여 가능한 채팅방이 없습니다.
+          </p>
         ) : (
-          <div className="stack">
+          <div className="list">
             {recentChats.map((room) => (
-              <Link
-                key={room.id}
-                href={`/chat/${room.id}`}
-                className="card"
-                style={{ border: '1px solid #e5e7eb' }}
-              >
-                <div className="stack">
-                  <strong>{room.title}</strong>
-                  <p>{room.description || '채팅방 설명이 없습니다.'}</p>
+              <Link key={room.id} href={`/chat/${room.id}`} className="list-item">
+                <div className="stack" style={{ gap: '8px' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '12px',
+                    }}
+                  >
+                    <strong className="list-title" style={{ marginBottom: 0 }}>
+                      {room.title}
+                    </strong>
+                    <span className="list-meta">
+                      {room.latestMessage
+                        ? formatShortDate(room.latestMessage.created_at)
+                        : formatShortDate(room.created_at)}
+                    </span>
+                  </div>
+
+                  <p className="list-meta" style={{ margin: 0 }}>
+                    {room.description || '채팅방 설명이 없습니다.'}
+                  </p>
 
                   {room.latestMessage ? (
-                    <p>
-                      최근 메시지: {room.latestMessage.sender_name} ·{' '}
-                      {room.latestMessage.content}
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: '14px',
+                        color: '#334155',
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      <strong>{room.latestMessage.sender_name}</strong> ·{' '}
+                      {truncateText(room.latestMessage.content, 52)}
                     </p>
                   ) : (
-                    <p>아직 메시지가 없습니다.</p>
+                    <p className="muted" style={{ margin: 0 }}>
+                      아직 메시지가 없습니다.
+                    </p>
                   )}
                 </div>
               </Link>

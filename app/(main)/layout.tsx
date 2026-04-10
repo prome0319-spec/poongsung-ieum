@@ -28,9 +28,25 @@ export default async function MainLayout({
   }
 
   return (
-    <>
-      {children}
+    <div
+      style={{
+        minHeight: '100vh',
+        position: 'relative',
+      }}
+    >
+      <main
+        style={{
+          maxWidth: '720px',
+          minHeight: '100vh',
+          margin: '0 auto',
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {children}
+      </main>
+
       <BottomNav />
-    </>
+    </div>
   )
 }
