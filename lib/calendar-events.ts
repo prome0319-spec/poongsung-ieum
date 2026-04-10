@@ -58,23 +58,66 @@ function getDisplayName(profile: BirthdayProfile) {
   return profile.nickname?.trim() || profile.name?.trim() || '이름없음'
 }
 
+function parseBirthDate(value: string | null) {
+  if (!value) return null
+
+  const datePart = value.slice(0, 10)
+  const [yearText, monthText, dayText] = datePart.split('-')
+
+  const birthYear = Number(yearText)
+  const birthMonth = Number(monthText)
+  const birthDay = Number(dayText)
+
+  if (
+    !Number.isInteger(birthYear) ||
+    !Number.isInteger(birthMonth) ||
+    !Number.isInteger(birthDay) ||
+    birthMonth < 1 ||
+    birthMonth > 12 ||
+    birthDay < 1 ||
+    birthDay > 31
+  ) {
+    return null
+  }
+
+  return {
+    birthYear,
+    birthMonth,
+    birthDay,
+  }
+}
+
 export function buildBirthdayEvents(
   profiles: BirthdayProfile[],
   year: number,
   monthIndex: number
 ): CalendarEvent[] {
+  const currentMonth = monthIndex + 1
   const lastDay = getMonthLastDay(year, monthIndex)
 
   return profiles
-    .filter((profile) => !!profile.birth_date)
     .map((profile) => {
-      const day = Number(profile.birth_date!.split('-')[2])
+      const parsedBirthDate = parseBirthDate(profile.birth_date)
 
-      if (!day || day < 1 || day > lastDay) {
+      if (!parsedBirthDate) {
         return null
       }
 
-      const dateKey = makeDateKey(year, monthIndex, day)
+      const { birthMonth, birthDay } = parsedBirthDate
+
+      // 생일은 "매년 같은 월/일"에만 표시되어야 하므로
+      // 현재 보고 있는 달과 생일 월이 다르면 생성하지 않는다.
+      if (birthMonth !== currentMonth) {
+        return null
+      }
+
+      // 2월 29일처럼 어떤 해에는 존재하지 않을 수 있으므로
+      // 현재 연도의 해당 달 마지막 일자를 넘으면 표시하지 않는다.
+      if (birthDay > lastDay) {
+        return null
+      }
+
+      const dateKey = makeDateKey(year, monthIndex, birthDay)
 
       return {
         id: `birthday-${profile.id}-${dateKey}`,
