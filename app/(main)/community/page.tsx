@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { CSSProperties } from 'react'
 import { createClient } from '@/lib/supabase/server'
 
 type UserType = 'soldier' | 'general' | 'admin'
@@ -24,7 +25,6 @@ type ProfileRow = {
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
     month: 'numeric',
     day: 'numeric',
     hour: '2-digit',
@@ -48,7 +48,7 @@ function getCategoryLabel(category: PostCategory) {
 }
 
 function getSnippet(content: string) {
-  return content.length > 100 ? `${content.slice(0, 100)}...` : content
+  return content.length > 110 ? `${content.slice(0, 110)}…` : content
 }
 
 function getAllowedFilters(userType: UserType | null) {
@@ -68,6 +68,154 @@ function getAllowedFilters(userType: UserType | null) {
     { key: 'free' as const, label: '자유' },
     { key: 'prayer' as const, label: '기도' },
   ]
+}
+
+function getCategoryTone(category: PostCategory): CSSProperties {
+  if (category === 'notice') {
+    return {
+      background: '#fff1f2',
+      border: '1px solid #fecdd3',
+      color: '#be123c',
+    }
+  }
+
+  if (category === 'prayer') {
+    return {
+      background: '#f5f3ff',
+      border: '1px solid #ddd6fe',
+      color: '#6d28d9',
+    }
+  }
+
+  if (category === 'soldier') {
+    return {
+      background: '#eff6ff',
+      border: '1px solid #bfdbfe',
+      color: '#1d4ed8',
+    }
+  }
+
+  return {
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    color: '#334155',
+  }
+}
+
+function SectionHeader({
+  title,
+  description,
+}: {
+  title: string
+  description?: string
+}) {
+  return (
+    <div className="stack" style={{ gap: '4px' }}>
+      <h2
+        className="section-title"
+        style={{
+          margin: 0,
+        }}
+      >
+        {title}
+      </h2>
+      {description ? (
+        <p
+          className="muted"
+          style={{
+            margin: 0,
+          }}
+        >
+          {description}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+function PostCard({
+  post,
+  authorName,
+  href,
+}: {
+  post: PostRow
+  authorName: string
+  href: string
+}) {
+  return (
+    <Link href={href} className="list-item">
+      <div className="stack" style={{ gap: '10px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flexWrap: 'wrap',
+          }}
+        >
+          {post.is_notice ? (
+            <span
+              className="badge"
+              style={{
+                marginBottom: 0,
+                background: '#111827',
+                border: '1px solid #111827',
+                color: '#ffffff',
+              }}
+            >
+              공지
+            </span>
+          ) : null}
+
+          <span
+            className="badge"
+            style={{
+              marginBottom: 0,
+              ...getCategoryTone(post.category),
+            }}
+          >
+            {getCategoryLabel(post.category)}
+          </span>
+        </div>
+
+        <div className="stack" style={{ gap: '6px' }}>
+          <strong
+            className="list-title"
+            style={{
+              marginBottom: 0,
+              fontSize: '17px',
+            }}
+          >
+            {post.title}
+          </strong>
+
+          <p
+            style={{
+              margin: 0,
+              color: '#475569',
+              fontSize: '14px',
+              lineHeight: 1.7,
+            }}
+          >
+            {getSnippet(post.content)}
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <span className="list-meta">{authorName}</span>
+          <span className="list-meta">{formatDateTime(post.created_at)}</span>
+        </div>
+      </div>
+    </Link>
+  )
 }
 
 export default async function CommunityPage({
@@ -167,275 +315,188 @@ export default async function CommunityPage({
   const writeHref = user ? '/community/write' : '/login'
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gap: 16,
-        paddingBottom: 88,
-      }}
-    >
+    <main className="page stack">
       <section
+        className="card"
         style={{
-          border: '1px solid #e5e7eb',
-          borderRadius: 16,
-          background: '#fff',
-          padding: 16,
-          display: 'grid',
-          gap: 12,
+          padding: '22px',
+          overflow: 'hidden',
+          position: 'relative',
+          background:
+            'linear-gradient(135deg, rgba(47,107,255,0.10), rgba(255,255,255,0.98) 45%, rgba(255,255,255,0.94))',
         }}
       >
         <div
           style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            gap: 12,
-            flexWrap: 'wrap',
+            position: 'absolute',
+            top: '-36px',
+            right: '-28px',
+            width: '140px',
+            height: '140px',
+            borderRadius: '999px',
+            background: 'rgba(47, 107, 255, 0.10)',
+            filter: 'blur(6px)',
+            pointerEvents: 'none',
           }}
-        >
-          <div>
-            <h1 style={{ margin: 0, fontSize: 24 }}>커뮤니티</h1>
-            <p style={{ margin: '8px 0 0', color: '#6b7280' }}>
-              공지, 자유글, 기도나눔을 한 곳에서 볼 수 있어요.
-            </p>
-          </div>
+        />
 
-          <Link
-            href={writeHref}
+        <div className="stack" style={{ gap: '16px', position: 'relative' }}>
+          <div
             style={{
-              textDecoration: 'none',
-              padding: '10px 14px',
-              borderRadius: 10,
-              background: '#111827',
-              color: '#fff',
-              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: '12px',
+              flexWrap: 'wrap',
             }}
           >
-            글쓰기
-          </Link>
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            gap: 8,
-            flexWrap: 'wrap',
-          }}
-        >
-          {allowedFilters.map((filter) => {
-            const active = selectedCategory === filter.key
-
-            return (
-              <Link
-                key={filter.key}
-                href={
-                  filter.key === 'all'
-                    ? '/community'
-                    : `/community?category=${filter.key}`
-                }
+            <div className="stack" style={{ gap: '8px' }}>
+              <span className="badge" style={{ width: 'fit-content', marginBottom: 0 }}>
+                커뮤니티
+              </span>
+              <h1
+                className="page-title"
                 style={{
-                  textDecoration: 'none',
-                  padding: '8px 12px',
-                  borderRadius: 999,
-                  border: active ? '1px solid #111827' : '1px solid #d1d5db',
-                  background: active ? '#111827' : '#fff',
-                  color: active ? '#fff' : '#111827',
-                  fontWeight: 600,
-                  fontSize: 14,
+                  margin: 0,
+                  fontSize: '32px',
                 }}
               >
-                {filter.label}
-              </Link>
-            )
-          })}
+                공지와 나눔이 모이는
+                <br />
+                공동체 피드
+              </h1>
+              <p
+                className="page-subtitle"
+                style={{
+                  margin: 0,
+                  fontSize: '15px',
+                }}
+              >
+                공지, 자유글, 기도나눔을 한 곳에서 확인하고 필요한 글을 바로 읽을 수 있습니다.
+              </p>
+            </div>
+
+            <Link
+              href={writeHref}
+              className="button"
+              style={{
+                width: 'auto',
+                minWidth: '108px',
+              }}
+            >
+              글쓰기
+            </Link>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+              gap: '10px',
+            }}
+          >
+            <div className="list-item" style={{ padding: '14px' }}>
+              <div className="muted" style={{ marginBottom: '6px' }}>
+                고정 공지
+              </div>
+              <strong>{pinnedPosts.length}개</strong>
+            </div>
+            <div className="list-item" style={{ padding: '14px' }}>
+              <div className="muted" style={{ marginBottom: '6px' }}>
+                현재 필터
+              </div>
+              <strong>
+                {allowedFilters.find((item) => item.key === selectedCategory)?.label ?? '전체'}
+              </strong>
+            </div>
+            <div className="list-item" style={{ padding: '14px' }}>
+              <div className="muted" style={{ marginBottom: '6px' }}>
+                최근 목록
+              </div>
+              <strong>{posts.length}개</strong>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              gap: '8px',
+              flexWrap: 'wrap',
+            }}
+          >
+            {allowedFilters.map((filter) => {
+              const active = selectedCategory === filter.key
+
+              return (
+                <Link
+                  key={filter.key}
+                  href={
+                    filter.key === 'all'
+                      ? '/community'
+                      : `/community?category=${filter.key}`
+                  }
+                  className="badge"
+                  style={{
+                    marginBottom: 0,
+                    padding: '8px 12px',
+                    background: active ? '#111827' : '#ffffff',
+                    border: active ? '1px solid #111827' : '1px solid #d7deea',
+                    color: active ? '#ffffff' : '#334155',
+                  }}
+                >
+                  {filter.label}
+                </Link>
+              )
+            })}
+          </div>
         </div>
       </section>
 
-      {selectedCategory === 'all' && pinnedPosts.length > 0 && (
-        <section
-          style={{
-            border: '1px solid #e5e7eb',
-            borderRadius: 16,
-            background: '#fff',
-            padding: 16,
-            display: 'grid',
-            gap: 12,
-          }}
-        >
-          <div>
-            <h2 style={{ margin: 0, fontSize: 18 }}>상단 고정 공지</h2>
-            <p style={{ margin: '8px 0 0', color: '#6b7280' }}>
-              중요한 공지는 항상 위쪽에 먼저 보여줘요.
-            </p>
-          </div>
+      {selectedCategory === 'all' && pinnedPosts.length > 0 ? (
+        <section className="card stack">
+          <SectionHeader
+            title="상단 고정 공지"
+            description="중요한 공지는 항상 위에서 먼저 확인할 수 있습니다."
+          />
 
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div className="list">
             {pinnedPosts.map((post) => (
-              <Link
+              <PostCard
                 key={post.id}
+                post={post}
                 href={`/community/${post.id}`}
-                style={{
-                  display: 'block',
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  border: '1px solid #f1f5f9',
-                  borderRadius: 14,
-                  padding: 14,
-                  background: '#fafafa',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
-                    marginBottom: 8,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 12,
-                      padding: '4px 8px',
-                      borderRadius: 999,
-                      background: '#111827',
-                      color: '#fff',
-                      fontWeight: 700,
-                    }}
-                  >
-                    고정 공지
-                  </span>
-
-                  <span
-                    style={{
-                      fontSize: 12,
-                      padding: '4px 8px',
-                      borderRadius: 999,
-                      background: '#f3f4f6',
-                    }}
-                  >
-                    {getCategoryLabel(post.category)}
-                  </span>
-                </div>
-
-                <div style={{ fontWeight: 700, marginBottom: 8 }}>{post.title}</div>
-
-                <div
-                  style={{
-                    color: '#4b5563',
-                    fontSize: 14,
-                    lineHeight: 1.6,
-                    marginBottom: 8,
-                  }}
-                >
-                  {getSnippet(post.content)}
-                </div>
-
-                <div style={{ color: '#6b7280', fontSize: 13 }}>
-                  {profileMap.get(post.author_id) ?? '이름 없음'} ·{' '}
-                  {formatDateTime(post.created_at)}
-                </div>
-              </Link>
+                authorName={profileMap.get(post.author_id) ?? '이름 없음'}
+              />
             ))}
           </div>
         </section>
-      )}
+      ) : null}
 
-      <section
-        style={{
-          border: '1px solid #e5e7eb',
-          borderRadius: 16,
-          background: '#fff',
-          padding: 16,
-          display: 'grid',
-          gap: 12,
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0, fontSize: 18 }}>
-            {selectedCategory === 'all'
+      <section className="card stack">
+        <SectionHeader
+          title={
+            selectedCategory === 'all'
               ? '최근 게시글'
-              : `${allowedFilters.find((item) => item.key === selectedCategory)?.label ?? '게시글'} 목록`}
-          </h2>
-        </div>
+              : `${allowedFilters.find((item) => item.key === selectedCategory)?.label ?? '게시글'} 목록`
+          }
+          description="가장 최근에 올라온 글부터 확인할 수 있습니다."
+        />
 
         {posts.length === 0 ? (
-          <p style={{ margin: 0, color: '#6b7280' }}>
-            해당 조건의 게시글이 아직 없어요.
-          </p>
+          <div className="status-warning">해당 조건의 게시글이 아직 없습니다.</div>
         ) : (
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div className="list">
             {posts.map((post) => (
-              <Link
+              <PostCard
                 key={post.id}
+                post={post}
                 href={`/community/${post.id}`}
-                style={{
-                  display: 'block',
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  border: '1px solid #f1f5f9',
-                  borderRadius: 14,
-                  padding: 14,
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
-                    marginBottom: 8,
-                  }}
-                >
-                  {post.is_notice && (
-                    <span
-                      style={{
-                        fontSize: 12,
-                        padding: '4px 8px',
-                        borderRadius: 999,
-                        background: '#111827',
-                        color: '#fff',
-                        fontWeight: 700,
-                      }}
-                    >
-                      공지
-                    </span>
-                  )}
-
-                  <span
-                    style={{
-                      fontSize: 12,
-                      padding: '4px 8px',
-                      borderRadius: 999,
-                      background: '#f3f4f6',
-                    }}
-                  >
-                    {getCategoryLabel(post.category)}
-                  </span>
-                </div>
-
-                <div style={{ fontWeight: 700, marginBottom: 8 }}>{post.title}</div>
-
-                <div
-                  style={{
-                    color: '#4b5563',
-                    fontSize: 14,
-                    lineHeight: 1.6,
-                    marginBottom: 8,
-                  }}
-                >
-                  {getSnippet(post.content)}
-                </div>
-
-                <div style={{ color: '#6b7280', fontSize: 13 }}>
-                  {profileMap.get(post.author_id) ?? '이름 없음'} ·{' '}
-                  {formatDateTime(post.created_at)}
-                </div>
-              </Link>
+                authorName={profileMap.get(post.author_id) ?? '이름 없음'}
+              />
             ))}
           </div>
         )}
       </section>
-    </div>
+    </main>
   )
 }

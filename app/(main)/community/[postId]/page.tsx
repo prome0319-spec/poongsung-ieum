@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { CSSProperties } from 'react'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { addComment, deletePost } from '../actions'
@@ -52,6 +53,69 @@ function getCategoryLabel(category: Post['category']) {
     default:
       return '게시글'
   }
+}
+
+function getCategoryTone(category: Post['category']): CSSProperties {
+  if (category === 'notice') {
+    return {
+      background: '#fff1f2',
+      border: '1px solid #fecdd3',
+      color: '#be123c',
+    }
+  }
+
+  if (category === 'prayer') {
+    return {
+      background: '#f5f3ff',
+      border: '1px solid #ddd6fe',
+      color: '#6d28d9',
+    }
+  }
+
+  if (category === 'soldier') {
+    return {
+      background: '#eff6ff',
+      border: '1px solid #bfdbfe',
+      color: '#1d4ed8',
+    }
+  }
+
+  return {
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    color: '#334155',
+  }
+}
+
+function SectionHeader({
+  title,
+  description,
+}: {
+  title: string
+  description?: string
+}) {
+  return (
+    <div className="stack" style={{ gap: '4px' }}>
+      <h2
+        className="section-title"
+        style={{
+          margin: 0,
+        }}
+      >
+        {title}
+      </h2>
+      {description ? (
+        <p
+          className="muted"
+          style={{
+            margin: 0,
+          }}
+        >
+          {description}
+        </p>
+      ) : null}
+    </div>
+  )
 }
 
 export default async function CommunityPostDetailPage({
@@ -123,183 +187,208 @@ export default async function CommunityPostDetailPage({
   const authorName = profileMap.get(post.author_id) ?? '이름 없음'
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gap: 16,
-        paddingBottom: 88,
-      }}
-    >
+    <main className="page stack">
       <section
+        className="card"
         style={{
-          border: '1px solid #e5e7eb',
-          borderRadius: 16,
-          background: '#fff',
-          padding: 16,
-          display: 'grid',
-          gap: 12,
+          padding: '22px',
+          overflow: 'hidden',
+          position: 'relative',
+          background:
+            'linear-gradient(135deg, rgba(47,107,255,0.10), rgba(255,255,255,0.98) 45%, rgba(255,255,255,0.94))',
         }}
       >
         <div
           style={{
-            display: 'flex',
-            gap: 8,
-            flexWrap: 'wrap',
-            alignItems: 'center',
+            position: 'absolute',
+            top: '-36px',
+            right: '-28px',
+            width: '140px',
+            height: '140px',
+            borderRadius: '999px',
+            background: 'rgba(47, 107, 255, 0.10)',
+            filter: 'blur(6px)',
+            pointerEvents: 'none',
           }}
-        >
-          {post.is_notice && (
-            <span
-              style={{
-                fontSize: 12,
-                padding: '4px 8px',
-                borderRadius: 999,
-                background: '#111827',
-                color: '#fff',
-                fontWeight: 700,
-              }}
-            >
-              공지
-            </span>
-          )}
+        />
 
-          <span
+        <div className="stack" style={{ gap: '16px', position: 'relative' }}>
+          <div
             style={{
-              fontSize: 12,
-              padding: '4px 8px',
-              borderRadius: 999,
-              background: '#f3f4f6',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              flexWrap: 'wrap',
             }}
           >
-            {getCategoryLabel(post.category)}
-          </span>
-        </div>
+            <Link
+              href="/community"
+              className="button ghost"
+              style={{
+                width: 'auto',
+                minHeight: '42px',
+                padding: '0 14px',
+              }}
+            >
+              목록으로
+            </Link>
 
-        <h1
-          style={{
-            margin: 0,
-            fontSize: 24,
-            lineHeight: 1.4,
-          }}
-        >
-          {post.title}
-        </h1>
+            <div
+              style={{
+                display: 'flex',
+                gap: '8px',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+              }}
+            >
+              {post.is_notice ? (
+                <span
+                  className="badge"
+                  style={{
+                    marginBottom: 0,
+                    background: '#111827',
+                    border: '1px solid #111827',
+                    color: '#ffffff',
+                  }}
+                >
+                  공지
+                </span>
+              ) : null}
+
+              <span
+                className="badge"
+                style={{
+                  marginBottom: 0,
+                  ...getCategoryTone(post.category),
+                }}
+              >
+                {getCategoryLabel(post.category)}
+              </span>
+            </div>
+          </div>
+
+          <div className="stack" style={{ gap: '10px' }}>
+            <h1
+              className="page-title"
+              style={{
+                margin: 0,
+                fontSize: '30px',
+                lineHeight: 1.35,
+              }}
+            >
+              {post.title}
+            </h1>
+
+            <div
+              style={{
+                display: 'flex',
+                gap: '10px',
+                flexWrap: 'wrap',
+                color: '#64748b',
+                fontSize: '14px',
+                lineHeight: 1.6,
+              }}
+            >
+              <span>작성자 {authorName}</span>
+              <span>·</span>
+              <span>{formatDateTime(post.created_at)}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="card stack">
+        <SectionHeader
+          title="본문"
+          description="게시글 내용을 아래에서 확인할 수 있습니다."
+        />
 
         <div
           style={{
-            color: '#6b7280',
-            fontSize: 14,
-            lineHeight: 1.6,
-          }}
-        >
-          <div>작성자: {authorName}</div>
-          <div>작성일: {formatDateTime(post.created_at)}</div>
-        </div>
-
-        <div
-          style={{
-            borderTop: '1px solid #f1f5f9',
-            paddingTop: 16,
+            padding: '18px',
+            borderRadius: '18px',
+            background: 'rgba(255,255,255,0.72)',
+            border: '1px solid #e5eaf3',
             whiteSpace: 'pre-wrap',
-            lineHeight: 1.7,
-            color: '#111827',
+            lineHeight: 1.85,
+            color: '#1f2937',
+            fontSize: '15px',
           }}
         >
           {post.content}
         </div>
 
-        {canManage && (
+        {canManage ? (
           <div
+            className="button-row"
             style={{
-              display: 'flex',
-              gap: 8,
-              flexWrap: 'wrap',
-              borderTop: '1px solid #f1f5f9',
-              paddingTop: 16,
+              marginTop: '4px',
             }}
           >
-            <Link
-              href={`/community/${post.id}/edit`}
-              style={{
-                textDecoration: 'none',
-                padding: '10px 14px',
-                borderRadius: 10,
-                border: '1px solid #d1d5db',
-                color: '#111827',
-                fontWeight: 600,
-              }}
-            >
+            <Link href={`/community/${post.id}/edit`} className="button secondary">
               수정하기
             </Link>
 
-            <form action={deletePost}>
+            <form action={deletePost} style={{ flex: 1 }}>
               <input type="hidden" name="post_id" value={post.id} />
-              <button
-                type="submit"
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: 10,
-                  border: '1px solid #ef4444',
-                  background: '#fff',
-                  color: '#ef4444',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
+              <button type="submit" className="button danger">
                 삭제하기
               </button>
             </form>
           </div>
-        )}
+        ) : null}
       </section>
 
-      <section
-        style={{
-          border: '1px solid #e5e7eb',
-          borderRadius: 16,
-          background: '#fff',
-          padding: 16,
-          display: 'grid',
-          gap: 14,
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0, fontSize: 18 }}>댓글</h2>
-        </div>
+      <section className="card stack">
+        <SectionHeader
+          title={`댓글 ${comments.length}개`}
+          description="함께 반응하고 대화를 이어갈 수 있습니다."
+        />
 
         {comments.length === 0 ? (
-          <p style={{ margin: 0, color: '#6b7280' }}>
-            아직 댓글이 없어요.
-          </p>
+          <div className="status-warning">아직 댓글이 없습니다.</div>
         ) : (
-          <div style={{ display: 'grid', gap: 12 }}>
+          <div className="list">
             {comments.map((comment) => (
               <div
                 key={comment.id}
+                className="list-item"
                 style={{
-                  border: '1px solid #f1f5f9',
-                  borderRadius: 12,
-                  padding: 12,
-                  background: '#fafafa',
+                  cursor: 'default',
                 }}
               >
-                <div
-                  style={{
-                    fontSize: 14,
-                    color: '#6b7280',
-                    marginBottom: 8,
-                  }}
-                >
-                  {profileMap.get(comment.author_id) ?? '이름 없음'} ·{' '}
-                  {formatDateTime(comment.created_at)}
-                </div>
-                <div
-                  style={{
-                    whiteSpace: 'pre-wrap',
-                    lineHeight: 1.6,
-                  }}
-                >
-                  {comment.content}
+                <div className="stack" style={{ gap: '8px' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '12px',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <strong
+                      style={{
+                        fontSize: '14px',
+                        color: '#172033',
+                      }}
+                    >
+                      {profileMap.get(comment.author_id) ?? '이름 없음'}
+                    </strong>
+                    <span className="list-meta">{formatDateTime(comment.created_at)}</span>
+                  </div>
+
+                  <div
+                    style={{
+                      whiteSpace: 'pre-wrap',
+                      lineHeight: 1.7,
+                      color: '#334155',
+                      fontSize: '14px',
+                    }}
+                  >
+                    {comment.content}
+                  </div>
                 </div>
               </div>
             ))}
@@ -307,42 +396,28 @@ export default async function CommunityPostDetailPage({
         )}
 
         {user ? (
-          <form
-            action={addComment}
-            style={{
-              display: 'grid',
-              gap: 10,
-              borderTop: '1px solid #f1f5f9',
-              paddingTop: 16,
-            }}
-          >
+          <form action={addComment} className="stack">
             <input type="hidden" name="post_id" value={post.id} />
 
             <textarea
               name="content"
-              rows={4}
+              className="textarea"
               placeholder="댓글을 입력하세요"
-              style={{
-                width: '100%',
-                border: '1px solid #d1d5db',
-                borderRadius: 12,
-                padding: 12,
-                font: 'inherit',
-                resize: 'vertical',
-              }}
+              rows={4}
             />
 
-            <div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+              }}
+            >
               <button
                 type="submit"
+                className="button"
                 style={{
-                  padding: '10px 14px',
-                  borderRadius: 10,
-                  border: 'none',
-                  background: '#111827',
-                  color: '#fff',
-                  fontWeight: 700,
-                  cursor: 'pointer',
+                  width: 'auto',
+                  minWidth: '120px',
                 }}
               >
                 댓글 등록
@@ -350,17 +425,11 @@ export default async function CommunityPostDetailPage({
             </div>
           </form>
         ) : (
-          <div
-            style={{
-              borderTop: '1px solid #f1f5f9',
-              paddingTop: 16,
-              color: '#6b7280',
-            }}
-          >
+          <div className="status-warning">
             댓글을 작성하려면 로그인해 주세요.
           </div>
         )}
       </section>
-    </div>
+    </main>
   )
 }
