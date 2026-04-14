@@ -31,14 +31,6 @@ function formatDate(value: string | null) {
   }).format(date)
 }
 
-function getUserTypeLabel(value: ProfileRow['user_type']) {
-  switch (value) {
-    case 'soldier': return '군지음이'
-    case 'general': return '지음이'
-    case 'admin': return '관리자'
-    default: return '미설정'
-  }
-}
 
 function getDisplayName(profile: Pick<ProfileRow, 'name' | 'nickname'>) {
   return (profile.nickname || profile.name || '이름 없음').trim()
