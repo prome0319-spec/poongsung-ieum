@@ -42,6 +42,19 @@ function getUserTypeLabel(userType: string | null | undefined) {
   return '사용자'
 }
 
+function getRoomEmoji(room: ChatRoom) {
+  if (room.is_announcement) return '📢'
+  if (room.audience === 'soldier') return '🎖️'
+  if (room.audience === 'general') return '✝️'
+  return '💬'
+}
+
+function getRoomIconBg(room: ChatRoom) {
+  if (room.is_announcement) return { background: '#fff7ed', border: '1.5px solid #fed7aa' }
+  if (room.audience === 'soldier') return { background: 'var(--military-soft)', border: '1.5px solid var(--military-soft-border)' }
+  return { background: 'var(--kakao-soft)', border: '1.5px solid var(--kakao-border)' }
+}
+
 export default async function ChatPage({ searchParams }: PageProps) {
   const params = await searchParams
   const message = readMessage(params.message)
@@ -52,19 +65,15 @@ export default async function ChatPage({ searchParams }: PageProps) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect('/login')
-  }
+  if (!user) redirect('/login')
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, name, user_type')
+    .select('id, name, nickname, user_type')
     .eq('id', user.id)
     .single()
 
-  if (!profile?.user_type) {
-    redirect('/onboarding')
-  }
+  if (!profile?.user_type) redirect('/onboarding')
 
   const audiences = getAllowedAudiences(profile.user_type as ChatUserType)
 
@@ -124,104 +133,263 @@ export default async function ChatPage({ searchParams }: PageProps) {
         .from('profiles')
         .select('id, name, nickname, user_type')
         .in('id', partnerIds)
-
       partnerProfiles = data ?? []
     }
 
-    const partnerProfileMap = new Map(
-      partnerProfiles.map((item) => [item.id, item])
-    )
+    const partnerProfileMap = new Map(partnerProfiles.map((item) => [item.id, item]))
 
     for (const room of directRooms) {
       const partnerMember = typedMembers.find(
         (member) => member.room_id === room.id && member.user_id !== user.id
       )
-
-      const partnerProfile = partnerMember
-        ? partnerProfileMap.get(partnerMember.user_id)
-        : null
-
+      const partnerProfile = partnerMember ? partnerProfileMap.get(partnerMember.user_id) : null
       partnerNameByRoomId.set(room.id, getDisplayName(partnerProfile))
-      partnerTypeByRoomId.set(
-        room.id,
-        getUserTypeLabel(partnerProfile?.user_type)
-      )
+      partnerTypeByRoomId.set(room.id, getUserTypeLabel(partnerProfile?.user_type))
     }
   }
 
   const typedGroupRooms = (groupRooms ?? []) as ChatRoom[]
 
   return (
-    <main className="page stack">
-      <div className="stack">
-        <h1>채팅</h1>
-        <p>{profile.name ?? '사용자'}님이 들어갈 수 있는 채팅 목록입니다.</p>
-
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <Link href="/chat/new">1:1 채팅 시작</Link>
+    <main className="page-hero">
+      {/* ── 헤더 ── */}
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          background: 'rgba(255,255,255,0.97)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid var(--border)',
+          padding: '16px 18px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <h1
+          style={{
+            margin: 0,
+            fontSize: '22px',
+            fontWeight: 800,
+            letterSpacing: '-0.025em',
+            color: '#111827',
+          }}
+        >
+          채팅
+        </h1>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {profile.user_type === 'admin' ? (
-            <Link href="/admin/chat-rooms">관리자 채팅방 관리</Link>
+            <Link
+              href="/admin/chat-rooms"
+              style={{
+                fontSize: '12.5px',
+                fontWeight: 600,
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-pill)',
+                background: 'var(--primary-soft)',
+                border: '1px solid var(--primary-soft-border)',
+                color: 'var(--primary)',
+              }}
+            >
+              채팅방 관리
+            </Link>
           ) : null}
+          <Link
+            href="/chat/new"
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '50%',
+              background: 'var(--kakao)',
+              border: '1.5px solid var(--kakao-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '18px',
+              color: 'var(--kakao-dark)',
+              fontWeight: 700,
+              boxShadow: 'var(--shadow-kakao)',
+            }}
+            title="1:1 채팅 시작"
+          >
+            +
+          </Link>
         </div>
       </div>
 
       {message ? (
-        <section className="card">
-          <p>{message}</p>
-        </section>
+        <div style={{ padding: '12px 18px 0' }}>
+          <div className="status-success">{message}</div>
+        </div>
       ) : null}
 
-      <section className="stack">
-        <h2>1:1 채팅</h2>
+      {/* ── 그룹 채팅 ── */}
+      <div style={{ padding: '16px 18px 8px' }}>
+        <div className="section-header-row" style={{ marginBottom: '10px' }}>
+          <h2 className="section-title">그룹 채팅</h2>
+          <span className="badge" style={{ fontSize: '11px', padding: '3px 8px' }}>
+            {typedGroupRooms.length}개
+          </span>
+        </div>
+      </div>
 
-        {directRooms.length === 0 ? (
-          <section className="card">
-            <p>아직 1:1 채팅방이 없습니다.</p>
-          </section>
-        ) : (
-          directRooms.map((room) => (
-            <Link key={room.id} href={`/chat/${room.id}`} className="card">
-              <div className="stack">
-                <strong>{partnerNameByRoomId.get(room.id) ?? '1:1 채팅'}</strong>
-                <p>{partnerTypeByRoomId.get(room.id) ?? '사용자'}</p>
+      {typedGroupRooms.length === 0 ? (
+        <div style={{ padding: '0 18px' }}>
+          <div
+            className="card"
+            style={{
+              textAlign: 'center',
+              padding: '32px',
+              color: 'var(--text-muted)',
+              fontSize: '14px',
+            }}
+          >
+            <div style={{ fontSize: '36px', marginBottom: '10px' }}>💬</div>
+            참여 가능한 그룹 채팅방이 없습니다.
+          </div>
+        </div>
+      ) : (
+        <div className="chat-list-card" style={{ margin: '0 18px' }}>
+          {typedGroupRooms.map((room) => (
+            <Link key={room.id} href={`/chat/${room.id}`} className="chat-room-item">
+              {/* Room icon */}
+              <div
+                className="avatar avatar-md"
+                style={{
+                  borderRadius: '14px',
+                  ...getRoomIconBg(room),
+                }}
+              >
+                <span style={{ fontSize: '22px' }}>{getRoomEmoji(room)}</span>
               </div>
+
+              <div className="chat-room-info">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                  <p className="chat-room-name" style={{ margin: 0 }}>{room.title}</p>
+                  {room.is_announcement ? (
+                    <span
+                      className="badge"
+                      style={{
+                        fontSize: '10px',
+                        padding: '2px 6px',
+                        background: '#fff7ed',
+                        border: '1px solid #fed7aa',
+                        color: '#c2410c',
+                      }}
+                    >
+                      공지
+                    </span>
+                  ) : null}
+                  <span
+                    className="badge"
+                    style={{
+                      fontSize: '10px',
+                      padding: '2px 6px',
+                    }}
+                  >
+                    {getAudienceLabel(room.audience)}
+                  </span>
+                </div>
+                {room.description ? (
+                  <p className="chat-room-preview">{room.description}</p>
+                ) : null}
+              </div>
+
+              <div
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: 'var(--border)',
+                  flexShrink: 0,
+                }}
+              />
             </Link>
-          ))
-        )}
-      </section>
+          ))}
+        </div>
+      )}
 
-      <section className="stack">
-        <h2>그룹 채팅</h2>
+      {/* ── 1:1 채팅 ── */}
+      <div style={{ padding: '20px 18px 8px' }}>
+        <div className="section-header-row" style={{ marginBottom: '10px' }}>
+          <h2 className="section-title">1:1 채팅</h2>
+          <Link href="/chat/new" className="see-all-link">
+            + 새로 시작
+          </Link>
+        </div>
+      </div>
 
-        {typedGroupRooms.length === 0 ? (
-          <section className="card">
-            <p>참여 가능한 그룹 채팅방이 없습니다.</p>
-          </section>
-        ) : (
-          typedGroupRooms.map((room) => (
-            <Link key={room.id} href={`/chat/${room.id}`} className="card">
-              <div className="stack">
+      {directRooms.length === 0 ? (
+        <div style={{ padding: '0 18px' }}>
+          <div
+            className="card"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              padding: '32px',
+              color: 'var(--text-muted)',
+              fontSize: '14px',
+              gap: '10px',
+            }}
+          >
+            <div style={{ fontSize: '36px' }}>🤝</div>
+            <p style={{ margin: 0 }}>아직 1:1 채팅방이 없습니다.</p>
+            <Link
+              href="/chat/new"
+              className="button"
+              style={{ width: 'auto', minHeight: '40px', padding: '0 20px', fontSize: '13.5px' }}
+            >
+              1:1 채팅 시작하기
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="chat-list-card" style={{ margin: '0 18px' }}>
+          {directRooms.map((room) => {
+            const partnerName = partnerNameByRoomId.get(room.id) ?? '1:1 채팅'
+            const partnerType = partnerTypeByRoomId.get(room.id) ?? '사용자'
+            const isSoldierPartner = partnerType === '군지음이'
+
+            return (
+              <Link key={room.id} href={`/chat/${room.id}`} className="chat-room-item">
                 <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    flexWrap: 'wrap',
-                  }}
+                  className={`avatar avatar-md ${isSoldierPartner ? 'avatar-soldier' : ''}`}
+                  style={{ boxShadow: 'var(--shadow-xs)' }}
                 >
-                  <strong>{room.title}</strong>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <span>{getAudienceLabel(room.audience)}</span>
-                    {room.is_announcement ? <span>공지방</span> : null}
-                  </div>
+                  <span style={{ fontSize: '22px' }}>{isSoldierPartner ? '🎖️' : '👤'}</span>
                 </div>
 
-                {room.description ? <p>{room.description}</p> : null}
-              </div>
-            </Link>
-          ))
-        )}
-      </section>
+                <div className="chat-room-info">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                    <p className="chat-room-name" style={{ margin: 0 }}>{partnerName}</p>
+                    <span
+                      className={`badge ${isSoldierPartner ? 'badge-military' : ''}`}
+                      style={{ fontSize: '10px', padding: '2px 6px' }}
+                    >
+                      {partnerType}
+                    </span>
+                  </div>
+                  <p className="chat-room-preview">1:1 개인 채팅</p>
+                </div>
+
+                <div
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: 'var(--border)',
+                    flexShrink: 0,
+                  }}
+                />
+              </Link>
+            )
+          })}
+        </div>
+      )}
+
+      <div style={{ height: '16px' }} />
     </main>
   )
 }

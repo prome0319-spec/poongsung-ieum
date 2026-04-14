@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 200" fill="none">
+  <!-- Sky -->
+  <rect width="360" height="200" fill="url(#milSkyGrad)"/>
+
+  <!-- Stars (small) -->
+  <circle cx="40" cy="30" r="1.5" fill="white" opacity="0.8"/>
+  <circle cx="80" cy="20" r="1" fill="white" opacity="0.7"/>
+  <circle cx="120" cy="35" r="1.5" fill="white" opacity="0.6"/>
+  <circle cx="250" cy="25" r="1" fill="white" opacity="0.8"/>
+  <circle cx="310" cy="15" r="1.5" fill="white" opacity="0.7"/>
+  <circle cx="340" cy="40" r="1" fill="white" opacity="0.6"/>
+
+  <!-- Mountains in background -->
+  <path d="M0 130 L60 70 L120 110 L180 60 L240 95 L300 65 L360 100 L360 200 L0 200Z" fill="#3d5934" opacity="0.5"/>
+  <path d="M0 145 L80 105 L160 130 L220 95 L300 120 L360 110 L360 200 L0 200Z" fill="#4a6741" opacity="0.7"/>
+
+  <!-- Ground -->
+  <path d="M0 160 Q180 150 360 160 L360 200 L0 200Z" fill="#5a7a4e"/>
+
+  <!-- Soldier silhouette (simple) -->
+  <!-- Hat -->
+  <path d="M165 95 L175 80 L185 82 L195 95 Z" fill="#2d4228"/>
+  <rect x="160" y="93" width="40" height="5" rx="2" fill="#3d5934"/>
+  <!-- Head -->
+  <ellipse cx="180" cy="107" rx="10" ry="11" fill="#c8956a"/>
+  <!-- Body/Uniform -->
+  <rect x="166" y="118" width="28" height="32" rx="4" fill="#3d5934"/>
+  <!-- Backpack -->
+  <rect x="157" y="118" width="12" height="26" rx="3" fill="#2d4228"/>
+  <!-- Legs -->
+  <rect x="166" y="150" width="11" height="20" rx="2" fill="#2d4228"/>
+  <rect x="183" y="150" width="11" height="20" rx="2" fill="#2d4228"/>
+  <!-- Boots -->
+  <rect x="164" y="168" width="14" height="8" rx="2" fill="#1a1a1a"/>
+  <rect x="181" y="168" width="14" height="8" rx="2" fill="#1a1a1a"/>
+  <!-- Arm with rifle suggestion -->
+  <rect x="194" y="120" width="5" height="28" rx="2" fill="#4a3228" transform="rotate(-8,194,120)"/>
+
+  <!-- Trees -->
+  <rect x="78" y="142" width="8" height="30" rx="2" fill="#3d5934"/>
+  <path d="M60 142 L86 90 L112 142 Z" fill="#2d4228"/>
+  <rect x="82" y="108" width="8" height="36" rx="2" fill="#3d5934" opacity="0.6"/>
+
+  <rect x="270" y="148" width="8" height="24" rx="2" fill="#3d5934"/>
+  <path d="M254 148 L278 100 L302 148 Z" fill="#2d4228"/>
+
+  <!-- Moon -->
+  <circle cx="40" cy="35" r="20" fill="#e8eef5" opacity="0.85"/>
+  <circle cx="48" cy="28" r="16" fill="#b8cce8" opacity="0.65"/>
+
+  <!-- Stars cluster -->
+  <path d="M300 28 L302 23 L304 28 L309 28 L305 31 L307 36 L302 33 L297 36 L299 31 L295 28 Z" fill="#FEE500" opacity="0.9"/>
+  <path d="M330 18 L331.5 14 L333 18 L337 18 L334 20.5 L335.5 25 L331.5 22.5 L327.5 25 L329 20.5 L326 18 Z" fill="#FEE500" opacity="0.7"/>
+
+  <defs>
+    <linearGradient id="milSkyGrad" x1="0" y1="0" x2="0" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1a2a3d"/>
+      <stop offset="60%" stop-color="#2d4228"/>
+      <stop offset="100%" stop-color="#3d5934"/>
+    </linearGradient>
+  </defs>
+</svg>
