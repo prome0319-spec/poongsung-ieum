@@ -4,7 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-type UserType = 'soldier' | 'general' | 'admin'
+import { canWriteNotice, canAccessSoldierContent } from '@/lib/utils/permissions'
+import type { UserType } from '@/types/user'
+
 type PostCategory = 'notice' | 'free' | 'prayer' | 'soldier'
 
 function toText(value: FormDataEntryValue | null) {
@@ -24,21 +26,16 @@ function normalizeCategoryByRole(
   rawValue: string,
   userType: UserType | null
 ): PostCategory {
-  if (rawValue === 'notice' && userType === 'admin') {
+  if (rawValue === 'notice' && canWriteNotice(userType)) {
     return 'notice'
   }
 
-  if (rawValue === 'soldier' && (userType === 'soldier' || userType === 'admin')) {
+  if (rawValue === 'soldier' && canAccessSoldierContent(userType)) {
     return 'soldier'
   }
 
-  if (rawValue === 'prayer') {
-    return 'prayer'
-  }
-
-  if (rawValue === 'free') {
-    return 'free'
-  }
+  if (rawValue === 'prayer') return 'prayer'
+  if (rawValue === 'free') return 'free'
 
   return 'free'
 }
@@ -85,7 +82,7 @@ export async function createPost(formData: FormData) {
     title,
     content,
     category,
-    is_notice: isAdmin(userType) ? noticeChecked : false,
+    is_notice: canWriteNotice(userType) ? noticeChecked : false,
   }
 
   const { data, error } = await supabase
@@ -174,7 +171,7 @@ export async function updatePost(formData: FormData) {
     title,
     content,
     category,
-    is_notice: isAdmin(userType) ? noticeChecked : false,
+    is_notice: canWriteNotice(userType) ? noticeChecked : false,
   }
 
   const { error } = await supabase

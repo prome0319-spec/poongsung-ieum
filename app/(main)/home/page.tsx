@@ -2,12 +2,15 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import HomeNoticePopup from '@/components/home/HomeNoticePopup'
+import { getUserTypeLabel, getUserTypeEmoji, isSoldier as checkSoldier, getAllowedAudiences, canViewAttendance } from '@/lib/utils/permissions'
+import type { UserType, HomeNotice } from '@/types/user'
 
 type Profile = {
   id: string
   name: string | null
   nickname: string | null
-  user_type: 'soldier' | 'general' | 'admin' | null
+  user_type: UserType | null
   bio: string | null
   military_unit: string | null
   enlistment_date: string | null
@@ -53,18 +56,6 @@ function getDisplayName(profile: Pick<Profile, 'name' | 'nickname'>) {
   return (profile.nickname || profile.name || '이름없음').trim()
 }
 
-function getUserTypeLabel(userType: Profile['user_type']) {
-  if (userType === 'soldier') return '군지음이'
-  if (userType === 'general') return '지음이'
-  if (userType === 'admin') return '관리자'
-  return '사용자'
-}
-
-function getAllowedAudiences(userType: Profile['user_type']) {
-  if (userType === 'admin') return ['all', 'soldier', 'general']
-  if (userType === 'soldier') return ['all', 'soldier']
-  return ['all', 'general']
-}
 
 function getScheduleCategoryLabel(category: SchedulePreview['category']) {
   if (category === 'worship') return '예배'
@@ -253,15 +244,35 @@ export default async function HomePage() {
     .sort((a, b) => new Date(b.sortBase).getTime() - new Date(a.sortBase).getTime())
     .slice(0, 3)
 
+  // 홈 공지 팝업
+  const nowIso2 = new Date().toISOString()
+  const userAudience = checkSoldier(profile.user_type) ? 'soldier' : 'general'
+  const { data: noticeData } = await supabase
+    .from('home_notices')
+    .select('*')
+    .eq('is_active', true)
+    .lte('starts_at', nowIso2)
+    .or(`expires_at.is.null,expires_at.gt.${nowIso2}`)
+    .or(`target_audience.eq.all,target_audience.eq.${userAudience}`)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const activeNotice = noticeData as HomeNotice | null
+
   const displayName = getDisplayName(profile)
   const quickLinks = getQuickLinks(profile.user_type)
   const ddayInfo = getDdayInfo(profile.discharge_date)
-  const isSoldier = profile.user_type === 'soldier'
+  const isSoldier = checkSoldier(profile.user_type)
+  const showAttendance = canViewAttendance(profile.user_type)
   const avatarSrc = isSoldier ? '/avatar-soldier.svg' : '/avatar-default.svg'
   const heroBanner = isSoldier ? '/hero-military.svg' : '/hero-church.svg'
 
   return (
     <main className="page-hero">
+      {/* ── 홈 공지 팝업 ── */}
+      {activeNotice && <HomeNoticePopup notice={activeNotice} />}
+
       {/* ── 히어로 배너 ── */}
       <div className="hero-banner">
         <Image

@@ -56,12 +56,13 @@ export async function updateMyProfile(formData: FormData) {
     goWithMessage('/onboarding', '프로필 정보를 먼저 완료해 주세요.')
   }
 
-  const nextUserType =
-    currentProfile.user_type === 'admin'
-      ? 'admin'
-      : rawUserType === 'soldier'
-      ? 'soldier'
-      : 'general'
+  // admin, pastor, pm_leader, soldier_leader 는 본인이 직접 변경 불가
+  const LOCKED_TYPES = ['admin', 'pastor', 'pm_leader', 'soldier_leader']
+  const nextUserType = LOCKED_TYPES.includes(currentProfile.user_type)
+    ? currentProfile.user_type
+    : rawUserType === 'soldier'
+    ? 'soldier'
+    : 'general'
 
   if (
     nextUserType === 'soldier' &&
@@ -78,9 +79,9 @@ export async function updateMyProfile(formData: FormData) {
     bio: bio || null,
     birth_date: birthDate,
     user_type: nextUserType,
-    enlistment_date: nextUserType === 'soldier' ? enlistmentDate : null,
-    discharge_date: nextUserType === 'soldier' ? dischargeDate : null,
-    military_unit: nextUserType === 'soldier' ? militaryUnit || null : null,
+    enlistment_date: (nextUserType === 'soldier' || nextUserType === 'soldier_leader') ? enlistmentDate : null,
+    discharge_date: (nextUserType === 'soldier' || nextUserType === 'soldier_leader') ? dischargeDate : null,
+    military_unit: (nextUserType === 'soldier' || nextUserType === 'soldier_leader') ? militaryUnit || null : null,
     updated_at: new Date().toISOString(),
   }
 

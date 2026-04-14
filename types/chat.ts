@@ -1,5 +1,7 @@
+import type { UserType } from './user'
+
 export type ChatAudience = 'all' | 'soldier' | 'general'
-export type ChatUserType = 'soldier' | 'general' | 'admin'
+export type ChatUserType = UserType
 export type ChatRoomType = 'group' | 'direct'
 
 export type ChatRoom = {

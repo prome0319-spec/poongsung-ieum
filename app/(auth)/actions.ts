@@ -108,7 +108,7 @@ export async function saveOnboarding(formData: FormData) {
   }
 
   if (userType !== 'soldier' && userType !== 'general') {
-    goWithMessage('/onboarding', '올바른 사용자 유형을 선택하세요.')
+    goWithMessage('/onboarding', '올바른 사용자 유형을 선택하세요. (지음이 또는 군지음이)')
   }
 
   const enlistmentDate = getString(formData, 'enlistment_date') || null

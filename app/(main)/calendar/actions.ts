@@ -4,7 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-type UserType = 'soldier' | 'general' | 'admin'
+import { canManageSchedule, canDeleteSchedule, getAllowedAudiences } from '@/lib/utils/permissions'
+import type { UserType } from '@/types/user'
+
 type ScheduleCategory = 'worship' | 'meeting' | 'event' | 'service' | 'general'
 type Audience = 'all' | 'soldier' | 'general'
 
@@ -144,11 +146,11 @@ async function requireAdmin() {
 
   const userType = (profile?.user_type as UserType | null) ?? null
 
-  if (userType !== 'admin') {
-    redirect('/calendar?error=admin_only')
+  if (!canManageSchedule(userType)) {
+    redirect('/calendar?error=no_permission')
   }
 
-  return { supabase, user }
+  return { supabase, user, userType }
 }
 
 export async function createSchedule(formData: FormData) {
