@@ -5,10 +5,12 @@ import {
   canAccessAdminUsers,
   isAdmin,
   isPastor,
+  isAdminOrPastor,
   getUserTypeLabel,
   ALL_USER_TYPES,
 } from '@/lib/utils/permissions'
-import type { UserType } from '@/types/user'
+import { loadUserContext } from '@/lib/utils/user-context'
+import type { SystemRole, UserType } from '@/types/user'
 
 type ActivityFilter = 'all' | 'active' | 'stale' | 'inactive'
 type SortType = 'recent_activity' | 'inactive_first' | 'recent_signup' | 'name'
@@ -26,6 +28,7 @@ type ProfileRow = {
   email: string | null
   name: string | null
   nickname: string | null
+  system_role: SystemRole | null
   user_type: UserType | null
   is_soldier: boolean
   onboarding_completed: boolean | null
@@ -94,20 +97,14 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: myProfile } = await supabase
-    .from('profiles')
-    .select('id, user_type, pm_group_id')
-    .eq('id', user.id)
-    .single()
+  const myCtx = await loadUserContext(user.id)
+  if (!canAccessAdminUsers(myCtx)) redirect('/home')
 
-  const myUserType = (myProfile?.user_type as UserType | null) ?? null
-  const myPmGroupId = myProfile?.pm_group_id ?? null
-
-  if (!canAccessAdminUsers(myUserType)) redirect('/home')
-
-  const isAdminOrPastor = isAdmin(myUserType) || isPastor(myUserType)
-  const isSoldierLeader = myUserType === 'soldier_leader'
-  const isPmLeader = myUserType === 'pm_leader'
+  const myPmGroupIds = myCtx.pmGroupIds
+  const myPmGroupId = myPmGroupIds[0] ?? null
+  const isAdminPastor = isAdminOrPastor(myCtx.profile.system_role)
+  const isSoldierLeader = myCtx.isSoldierTeamLeader
+  const isPmLeaderUser = myPmGroupIds.length > 0
 
   const q = safeText(params.q)
   const filterUserType = safeText(params.userType) as UserType | ''
@@ -117,19 +114,16 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
 
   let profilesQuery = supabase
     .from('profiles')
-    .select('id, email, name, nickname, user_type, is_soldier, onboarding_completed, created_at, military_unit, discharge_date, pm_group_id')
+    .select('id, email, name, nickname, system_role, user_type, is_soldier, onboarding_completed, created_at, military_unit, discharge_date, pm_group_id')
     .order('created_at', { ascending: false })
 
   // 권한별 범위 제한
   if (isSoldierLeader) {
-    // 군지음이만
-    profilesQuery = profilesQuery.eq('user_type', 'soldier')
-  } else if (isPmLeader) {
-    // 자신의 PM 그룹 멤버만
-    if (myPmGroupId) {
-      profilesQuery = profilesQuery.eq('pm_group_id', myPmGroupId)
+    profilesQuery = profilesQuery.eq('is_soldier', true)
+  } else if (isPmLeaderUser && !isAdminPastor) {
+    if (myPmGroupIds.length > 0) {
+      profilesQuery = profilesQuery.in('pm_group_id', myPmGroupIds)
     } else {
-      // PM 그룹 미배정이면 아무도 못 봄
       profilesQuery = profilesQuery.eq('id', 'none')
     }
   }
@@ -241,7 +235,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
   // 권한 안내 메시지
   let scopeNote: string | null = null
   if (isSoldierLeader) scopeNote = '군지음 팀장 권한: 군지음이 멤버만 표시됩니다.'
-  else if (isPmLeader) scopeNote = myPmGroupId ? '소속 PM 그룹 멤버만 표시됩니다.' : 'PM 그룹에 배정되지 않았습니다. 관리자에게 문의하세요.'
+  else if (isPmLeaderUser && !isAdminPastor) scopeNote = myPmGroupId ? '소속 PM 그룹 멤버만 표시됩니다.' : 'PM 그룹에 배정되지 않았습니다. 관리자에게 문의하세요.'
 
   return (
     <main className="page" style={{ paddingBottom: 120 }}>
@@ -274,7 +268,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
             <input name="q" defaultValue={q} placeholder="이름 / 닉네임 / 이메일" className="input" style={{ padding: '10px 12px' }} />
           </div>
           <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
-            {isAdminOrPastor && (
+            {isAdminPastor && (
               <div>
                 <label style={LABEL_STYLE}>사용자 유형</label>
                 <select name="userType" defaultValue={filterUserType} style={SELECT_STYLE}>

@@ -5,12 +5,13 @@ import {
   getUserTypeLabel,
   canAccessAdminUsers,
   canChangeUserType,
-  canManagePmMembers,
   isAdmin,
   isPastor,
+  isAdminOrPastor,
   ALL_USER_TYPES,
 } from '@/lib/utils/permissions'
-import type { UserType } from '@/types/user'
+import { loadUserContext } from '@/lib/utils/user-context'
+import type { SystemRole, UserType } from '@/types/user'
 import { updateUserTypeAndGroup, upsertAdminNote, deleteAdminNote } from '../actions'
 
 type PageProps = {
@@ -22,6 +23,7 @@ type ProfileRow = {
   email: string | null
   name: string | null
   nickname: string | null
+  system_role: SystemRole | null
   user_type: UserType | null
   is_soldier: boolean
   bio: string | null
@@ -81,19 +83,12 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: myProfile } = await supabase
-    .from('profiles')
-    .select('id, user_type')
-    .eq('id', user.id)
-    .single()
+  const myCtx = await loadUserContext(user.id)
+  if (!canAccessAdminUsers(myCtx)) redirect('/home')
 
-  const myUserType = (myProfile?.user_type as UserType | null) ?? null
-
-  if (!canAccessAdminUsers(myUserType)) redirect('/home')
-
-  const canEditType = canChangeUserType(myUserType)
-  const canEditGroup = canManagePmMembers(myUserType)
-  const canSeeAllNotes = isAdmin(myUserType) || isPastor(myUserType)
+  const canEditType = canChangeUserType(myCtx)
+  const canEditGroup = isAdminOrPastor(myCtx.profile.system_role) || myCtx.pmGroupIds.length > 0
+  const canSeeAllNotes = isAdmin(myCtx.profile.system_role) || isPastor(myCtx.profile.system_role)
 
   const [
     { data: profileData, error: profileError },
@@ -101,7 +96,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, email, name, nickname, user_type, is_soldier, bio, onboarding_completed, created_at, enlistment_date, discharge_date, military_unit, pm_group_id')
+      .select('id, email, name, nickname, system_role, user_type, is_soldier, bio, onboarding_completed, created_at, enlistment_date, discharge_date, military_unit, pm_group_id')
       .eq('id', userId)
       .single<ProfileRow>(),
     supabase.from('pm_groups').select('id, name').order('name'),

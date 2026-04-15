@@ -19,9 +19,9 @@ function readMessage(value: string | string[] | undefined) {
   return value ?? ''
 }
 
-function getAllowedAudiences(userType: ChatUserType): ChatAudience[] {
-  if (userType === 'admin') return ['all', 'soldier', 'general']
-  if (userType === 'soldier') return ['all', 'soldier']
+function getAllowedAudiences(systemRole: string | null, isSoldier: boolean): ChatAudience[] {
+  if (systemRole === 'admin' || systemRole === 'pastor') return ['all', 'soldier', 'general']
+  if (isSoldier) return ['all', 'soldier']
   return ['all', 'general']
 }
 
@@ -69,13 +69,13 @@ export default async function ChatPage({ searchParams }: PageProps) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, name, nickname, user_type')
+    .select('id, name, nickname, system_role, is_soldier, onboarding_completed')
     .eq('id', user.id)
     .single()
 
-  if (!profile?.user_type) redirect('/onboarding')
+  if (!profile?.onboarding_completed) redirect('/onboarding')
 
-  const audiences = getAllowedAudiences(profile.user_type as ChatUserType)
+  const audiences = getAllowedAudiences(profile.system_role ?? null, profile.is_soldier ?? false)
 
   const { data: groupRooms } = await supabase
     .from('chat_rooms')
@@ -179,7 +179,7 @@ export default async function ChatPage({ searchParams }: PageProps) {
           채팅
         </h1>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {profile.user_type === 'admin' ? (
+          {(profile.system_role === 'admin' || profile.system_role === 'pastor') ? (
             <Link
               href="/admin/chat-rooms"
               style={{

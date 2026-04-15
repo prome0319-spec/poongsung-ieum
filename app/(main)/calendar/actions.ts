@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
 import { canManageSchedule, canDeleteSchedule } from '@/lib/utils/permissions'
-import type { UserType } from '@/types/user'
+import type { SystemRole } from '@/types/user'
 
 type ScheduleCategory = 'worship' | 'meeting' | 'event' | 'service' | 'general'
 type Audience = 'all' | 'soldier' | 'general'
@@ -69,17 +69,17 @@ async function requireAdmin() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, user_type')
+    .select('id, system_role')
     .eq('id', user.id)
     .maybeSingle()
 
-  const userType = (profile?.user_type as UserType | null) ?? null
+  const systemRole = (profile?.system_role as SystemRole | null) ?? null
 
-  if (!canManageSchedule(userType)) {
+  if (!canManageSchedule(systemRole)) {
     redirect('/calendar?error=no_permission')
   }
 
-  return { supabase, user, userType }
+  return { supabase, user, systemRole }
 }
 
 export async function createSchedule(formData: FormData) {
@@ -246,9 +246,9 @@ export async function updateSchedule(formData: FormData) {
 }
 
 export async function deleteSchedule(formData: FormData) {
-  const { supabase, userType } = await requireAdmin()
+  const { supabase, systemRole } = await requireAdmin()
 
-  if (!canDeleteSchedule(userType)) {
+  if (!canDeleteSchedule(systemRole)) {
     redirect('/admin/calendar?error=no_permission')
   }
 

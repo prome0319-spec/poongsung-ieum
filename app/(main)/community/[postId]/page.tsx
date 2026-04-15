@@ -4,8 +4,6 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { addComment, deletePost } from '../actions'
 
-type UserType = 'soldier' | 'general' | 'admin'
-
 type Post = {
   id: string
   author_id: string
@@ -27,7 +25,6 @@ type ProfileRow = {
   id: string
   name: string | null
   nickname: string | null
-  user_type?: UserType | null
 }
 
 function formatDateTime(value: string) {
@@ -150,19 +147,20 @@ export default async function CommunityPostDetailPage({
     data: { user },
   } = await supabase.auth.getUser()
 
-  let viewerRole: UserType | null = null
+  let isAdminOrPastorViewer = false
 
   if (user) {
     const { data: myProfile } = await supabase
       .from('profiles')
-      .select('id, user_type')
+      .select('id, system_role')
       .eq('id', user.id)
       .maybeSingle()
 
-    viewerRole = (myProfile?.user_type as UserType | null) ?? null
+    const sr = myProfile?.system_role
+    isAdminOrPastorViewer = sr === 'admin' || sr === 'pastor'
   }
 
-  const canManage = !!user && (user.id === post.author_id || viewerRole === 'admin')
+  const canManage = !!user && (user.id === post.author_id || isAdminOrPastorViewer)
 
   const profileIds = Array.from(
     new Set([post.author_id, ...comments.map((comment) => comment.author_id)])

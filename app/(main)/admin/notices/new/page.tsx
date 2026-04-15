@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { canManageHomeNotice } from '@/lib/utils/permissions'
 import { createHomeNotice } from '../actions'
-import type { UserType } from '@/types/user'
+import type { SystemRole } from '@/types/user'
 
 type PageProps = {
   searchParams: Promise<{ message?: string }>
@@ -18,11 +18,11 @@ export default async function AdminNoticeNewPage({ searchParams }: PageProps) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, user_type')
+    .select('id, system_role')
     .eq('id', user.id)
     .maybeSingle()
 
-  if (!canManageHomeNotice(profile?.user_type as UserType | null)) {
+  if (!canManageHomeNotice(profile?.system_role as SystemRole | null)) {
     redirect('/home')
   }
 

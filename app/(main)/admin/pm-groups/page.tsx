@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { canManagePmGroups } from '@/lib/utils/permissions'
-import type { UserType } from '@/types/user'
+import type { SystemRole } from '@/types/user'
 import { createPmGroup, updatePmGroup, deletePmGroup } from './actions'
 
 type PmGroup = {
@@ -24,12 +24,12 @@ export default async function AdminPmGroupsPage({
 
   const { data: myProfile } = await supabase
     .from('profiles')
-    .select('id, user_type')
+    .select('id, system_role')
     .eq('id', user.id)
     .single()
 
-  const myUserType = (myProfile?.user_type as UserType | null) ?? null
-  if (!canManagePmGroups(myUserType)) redirect('/home')
+  const mySystemRole = (myProfile?.system_role as SystemRole | null) ?? null
+  if (!canManagePmGroups(mySystemRole)) redirect('/home')
 
   const params = await searchParams
   const message = params.message ?? null

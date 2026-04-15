@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { canAccessAdminUsers, canChangeUserType, canManagePmMembers, ALL_USER_TYPES } from '@/lib/utils/permissions'
+import { canAccessAdminUsers, canChangeUserType, ALL_USER_TYPES } from '@/lib/utils/permissions'
+import { loadUserContext } from '@/lib/utils/user-context'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { UserType } from '@/types/user'
 
@@ -19,31 +20,17 @@ function goWithMessage(path: string, message: string): never {
 async function requireAdmin() {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
-  if (!user) {
-    redirect('/login')
-  }
+  const ctx = await loadUserContext(user.id)
+  if (!canAccessAdminUsers(ctx)) redirect('/home')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, user_type')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  const userType = (profile?.user_type as UserType | null) ?? null
-
-  if (!canAccessAdminUsers(userType)) {
-    redirect('/home')
-  }
-
-  return { supabase, adminUserId: user.id, adminUserType: userType }
+  return { supabase, adminUserId: user.id, adminCtx: ctx }
 }
 
 export async function updateUserTypeAndGroup(formData: FormData) {
-  const { supabase, adminUserType } = await requireAdmin()
+  const { supabase, adminCtx } = await requireAdmin()
 
   const targetUserId = toText(formData.get('target_user_id'))
   const newUserType = toText(formData.get('user_type')) as UserType | ''
@@ -58,13 +45,17 @@ export async function updateUserTypeAndGroup(formData: FormData) {
   }
 
   // 역할 및 군인 여부 변경은 admin만 가능
-  if (canChangeUserType(adminUserType)) {
+  if (canChangeUserType(adminCtx)) {
     if (newUserType) {
       const validTypes = ALL_USER_TYPES.map((t) => t.value)
       if (!validTypes.includes(newUserType)) {
         goWithMessage(returnTo, '올바르지 않은 사용자 역할입니다.')
       }
       payload.user_type = newUserType
+      // system_role 도 함께 업데이트
+      if (newUserType === 'admin') payload.system_role = 'admin'
+      else if (newUserType === 'pastor') payload.system_role = 'pastor'
+      else payload.system_role = 'member'
     }
 
     // 군지음이 여부 변경

@@ -3,16 +3,22 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import type { ChatAudience, ChatRoomType, ChatUserType } from '@/types/chat'
+import type { ChatAudience, ChatRoomType } from '@/types/chat'
 
 function go(path: string, message: string) {
   redirect(`${path}?message=${encodeURIComponent(message)}`)
 }
 
-function canAccessGroupRoom(userType: ChatUserType, audience: ChatAudience) {
-  if (userType === 'admin') return true
+function canAccessGroupRoom(
+  systemRole: string | null,
+  isSoldier: boolean,
+  audience: ChatAudience
+) {
+  if (systemRole === 'admin' || systemRole === 'pastor') return true
   if (audience === 'all') return true
-  return userType === audience
+  if (audience === 'soldier') return isSoldier
+  if (audience === 'general') return !isSoldier
+  return false
 }
 
 async function requireUser() {
@@ -28,7 +34,7 @@ async function requireUser() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, name, nickname, user_type')
+    .select('id, name, nickname, user_type, system_role, is_soldier')
     .eq('id', user.id)
     .single()
 
@@ -59,17 +65,19 @@ export async function sendChatMessage(formData: FormData) {
     return
   }
 
-  const userType = profile.user_type as ChatUserType
+  const systemRole = profile.system_role as string | null
+  const isSoldier = !!profile.is_soldier
+  const userType = profile.user_type
   const roomType = room.room_type as ChatRoomType
 
   if (roomType === 'group') {
     const audience = room.audience as ChatAudience
-    if (!canAccessGroupRoom(userType, audience)) {
+    if (!canAccessGroupRoom(systemRole, isSoldier, audience)) {
       return
     }
   }
 
-  if (room.is_announcement && userType !== 'admin') {
+  if (room.is_announcement && systemRole !== 'admin' && systemRole !== 'pastor') {
     return
   }
 

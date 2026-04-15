@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { canManageHomeNotice } from '@/lib/utils/permissions'
-import type { UserType } from '@/types/user'
+import type { SystemRole } from '@/types/user'
 
 function goWithMessage(path: string, message: string): never {
   const sep = path.includes('?') ? '&' : '?'
@@ -23,11 +23,11 @@ async function getAuthorized() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, user_type')
+    .select('id, system_role')
     .eq('id', user.id)
     .maybeSingle()
 
-  if (!canManageHomeNotice(profile?.user_type as UserType | null)) {
+  if (!canManageHomeNotice(profile?.system_role as SystemRole | null)) {
     redirect('/home')
   }
 

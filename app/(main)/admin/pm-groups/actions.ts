@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { canManagePmGroups } from '@/lib/utils/permissions'
-import type { UserType } from '@/types/user'
+import type { SystemRole } from '@/types/user'
 
 function toText(value: FormDataEntryValue | null) {
   return String(value ?? '').trim()
@@ -22,12 +22,12 @@ async function requireGroupManager() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, user_type')
+    .select('id, system_role')
     .eq('id', user.id)
     .maybeSingle()
 
-  const userType = (profile?.user_type as UserType | null) ?? null
-  if (!canManagePmGroups(userType)) redirect('/home')
+  const systemRole = (profile?.system_role as SystemRole | null) ?? null
+  if (!canManagePmGroups(systemRole)) redirect('/home')
 
   return { supabase, userId: user.id }
 }

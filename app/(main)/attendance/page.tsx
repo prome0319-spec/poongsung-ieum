@@ -1,15 +1,15 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { loadUserContext } from '@/lib/utils/user-context'
 import {
-  canRecordAttendance,
   canViewAttendance,
+  canRecordAttendance,
+  isAdminOrPastor,
   getUserTypeLabel,
-  isAdmin,
-  isPastor,
 } from '@/lib/utils/permissions'
 import { upsertAttendance } from './actions'
-import type { UserType, AttendanceRecord, AttendanceStatus } from '@/types/user'
+import type { AttendanceStatus, AttendanceRecord, UserType } from '@/types/user'
 
 type PageProps = {
   searchParams: Promise<{ date?: string; group?: string; message?: string }>
@@ -19,7 +19,8 @@ type Member = {
   id: string
   name: string | null
   nickname: string | null
-  user_type: UserType | null
+  user_type: string | null
+  system_role: string | null
   is_soldier: boolean
   pm_group_id: string | null
 }
@@ -69,18 +70,12 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: myProfile } = await supabase
-    .from('profiles')
-    .select('id, user_type, pm_group_id')
-    .eq('id', user.id)
-    .single()
+  const ctx = await loadUserContext(user.id)
+  if (!canViewAttendance(ctx)) redirect('/home')
 
-  if (!canViewAttendance(myProfile?.user_type as UserType | null)) {
-    redirect('/home')
-  }
-
-  const canRecord = canRecordAttendance(myProfile?.user_type as UserType | null)
-  const isAdminOrPastor = isAdmin(myProfile?.user_type) || isPastor(myProfile?.user_type)
+  const canRecord = canRecordAttendance(ctx)
+  const isAdminPastor = isAdminOrPastor(ctx.profile.system_role)
+  const isSoldierLeader = ctx.isSoldierTeamLeader
 
   // PM 그룹 목록
   const { data: pmGroupsData } = await supabase
@@ -92,21 +87,31 @@ export default async function AttendancePage({ searchParams }: PageProps) {
 
   // 현재 선택된 날짜와 그룹
   const selectedDate = date || getLastSunday()
-  const selectedGroup = group || (isAdminOrPastor ? 'all' : (myProfile?.pm_group_id ?? 'all'))
-
-  const isSoldierLeader = myProfile?.user_type === 'soldier_leader'
+  const defaultGroup = isAdminPastor
+    ? 'all'
+    : ctx.pmGroupIds[0] ?? 'all'
+  const selectedGroup = group || defaultGroup
 
   // 멤버 목록 조회
   let membersQuery = supabase
     .from('profiles')
-    .select('id, name, nickname, user_type, is_soldier, pm_group_id')
+    .select('id, name, nickname, user_type, system_role, is_soldier, pm_group_id')
     .eq('onboarding_completed', true)
-    .not('user_type', 'in', '("admin","pastor")')
+    .not('system_role', 'in', '("admin","pastor")')
     .order('name')
 
   if (isSoldierLeader) {
-    // 군지음 팀장: 군지음이만
     membersQuery = membersQuery.eq('is_soldier', true)
+  } else if (!isAdminPastor) {
+    // PM지기: 자신의 PM 그룹만
+    const ownGroups = ctx.pmGroupIds
+    if (ownGroups.length > 0) {
+      if (selectedGroup !== 'all' && ownGroups.includes(selectedGroup)) {
+        membersQuery = membersQuery.eq('pm_group_id', selectedGroup)
+      } else {
+        membersQuery = membersQuery.in('pm_group_id', ownGroups)
+      }
+    }
   } else if (selectedGroup !== 'all') {
     membersQuery = membersQuery.eq('pm_group_id', selectedGroup)
   }
@@ -116,7 +121,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
 
   // 해당 날짜의 출석 기록
   const memberIds = members.map((m) => m.id)
-  let attendanceMap = new Map<string, AttendanceRecord>()
+  const attendanceMap = new Map<string, AttendanceRecord>()
 
   if (memberIds.length > 0) {
     const { data: attData } = await supabase
@@ -133,11 +138,11 @@ export default async function AttendancePage({ searchParams }: PageProps) {
 
   // 통계
   const stats = {
-    total:   members.length,
-    present: [...attendanceMap.values()].filter((r) => r.status === 'present').length,
-    absent:  [...attendanceMap.values()].filter((r) => r.status === 'absent').length,
-    late:    [...attendanceMap.values()].filter((r) => r.status === 'late').length,
-    excused: [...attendanceMap.values()].filter((r) => r.status === 'excused').length,
+    total:      members.length,
+    present:    [...attendanceMap.values()].filter((r) => r.status === 'present').length,
+    absent:     [...attendanceMap.values()].filter((r) => r.status === 'absent').length,
+    late:       [...attendanceMap.values()].filter((r) => r.status === 'late').length,
+    excused:    [...attendanceMap.values()].filter((r) => r.status === 'excused').length,
     notChecked: members.length - attendanceMap.size,
   }
 
@@ -172,10 +177,12 @@ export default async function AttendancePage({ searchParams }: PageProps) {
             <div className="field" style={{ flex: '1', minWidth: '140px' }}>
               <label className="field-label" htmlFor="group">소그룹</label>
               <select id="group" name="group" className="input select" defaultValue={selectedGroup} style={{ fontSize: '14px' }}>
-                {isAdminOrPastor && <option value="all">전체</option>}
-                {pmGroups.map((g) => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
-                ))}
+                {isAdminPastor && <option value="all">전체</option>}
+                {pmGroups
+                  .filter((g) => isAdminPastor || ctx.pmGroupIds.includes(g.id))
+                  .map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
               </select>
             </div>
           )}
@@ -183,16 +190,26 @@ export default async function AttendancePage({ searchParams }: PageProps) {
           <button type="submit" className="button" style={{ width: 'auto', padding: '0 18px', minHeight: '44px', fontSize: '14px', marginBottom: '1px' }}>
             조회
           </button>
+
+          {canRecord && (
+            <Link
+              href="/attendance/qr"
+              className="button"
+              style={{ width: 'auto', padding: '0 18px', minHeight: '44px', fontSize: '14px', marginBottom: '1px', background: 'var(--success)', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              📱 QR 체크인
+            </Link>
+          )}
         </form>
       </div>
 
       {/* 통계 */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
         {[
-          { label: '전체', value: stats.total, color: 'var(--text)' },
-          { label: '출석', value: stats.present, color: 'var(--success)' },
+          { label: '전체',   value: stats.total,      color: 'var(--text)' },
+          { label: '출석',   value: stats.present,    color: 'var(--success)' },
           { label: '미확인', value: stats.notChecked, color: 'var(--text-muted)' },
-          { label: '결석', value: stats.absent, color: 'var(--danger)' },
+          { label: '결석',   value: stats.absent,     color: 'var(--danger)' },
         ].map((s) => (
           <div key={s.label} className="attendance-stat">
             <span className="stat-value" style={{ color: s.color }}>{s.value}</span>
@@ -200,6 +217,15 @@ export default async function AttendancePage({ searchParams }: PageProps) {
           </div>
         ))}
       </div>
+
+      {/* 출석 통계 링크 */}
+      {isAdminPastor && (
+        <div style={{ marginBottom: '12px', textAlign: 'right' }}>
+          <Link href="/attendance/stats" style={{ fontSize: '13px', color: 'var(--primary)', fontWeight: 600 }}>
+            📊 출석 통계 보기 →
+          </Link>
+        </div>
+      )}
 
       {/* 멤버 목록 */}
       {members.length === 0 ? (
@@ -219,12 +245,8 @@ export default async function AttendancePage({ searchParams }: PageProps) {
                 className="card"
                 style={{
                   padding: '13px 15px',
-                  background: currentStatus
-                    ? STATUS_BG[currentStatus]
-                    : 'var(--bg-card)',
-                  borderColor: currentStatus
-                    ? 'transparent'
-                    : 'var(--border)',
+                  background: currentStatus ? STATUS_BG[currentStatus] : 'var(--bg-card)',
+                  borderColor: currentStatus ? 'transparent' : 'var(--border)',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -247,7 +269,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
                       {getDisplayName(member)}
                     </p>
                     <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                      {getUserTypeLabel(member.user_type)}
+                      {getUserTypeLabel(member.user_type as UserType | null, member.is_soldier)}
                     </p>
                   </div>
 
@@ -269,7 +291,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
                   )}
                 </div>
 
-                {/* 출석 버튼 (권한 있는 경우만) */}
+                {/* 출석 버튼 */}
                 {canRecord && (
                   <div style={{ display: 'flex', gap: '6px', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
                     {(['present', 'late', 'absent', 'excused'] as AttendanceStatus[]).map((s) => (

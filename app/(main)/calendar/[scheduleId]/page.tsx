@@ -2,7 +2,6 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-type UserType = 'soldier' | 'general' | 'admin'
 type ScheduleCategory = 'worship' | 'meeting' | 'event' | 'service' | 'general'
 type Audience = 'all' | 'soldier' | 'general'
 
@@ -77,11 +76,13 @@ export default async function CalendarDetailPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, user_type')
+    .select('id, system_role, is_soldier')
     .eq('id', user.id)
     .maybeSingle()
 
-  const userType = (profile?.user_type as UserType | null) ?? 'general'
+  const sr = profile?.system_role
+  const isAdminOrPastorUser = sr === 'admin' || sr === 'pastor'
+  const isSoldier = !!profile?.is_soldier
 
   const { data: scheduleData } = await supabase
     .from('schedules')
@@ -98,9 +99,10 @@ export default async function CalendarDetailPage({
   }
 
   const canView =
-    userType === 'admin' ||
+    isAdminOrPastorUser ||
     schedule.audience === 'all' ||
-    schedule.audience === userType
+    (schedule.audience === 'soldier' && isSoldier) ||
+    (schedule.audience === 'general' && !isSoldier)
 
   if (!canView) {
     notFound()
@@ -193,7 +195,7 @@ export default async function CalendarDetailPage({
               목록으로
             </Link>
 
-            {userType === 'admin' && (
+            {isAdminOrPastorUser && (
               <Link
                 href={`/admin/calendar/${schedule.id}/edit`}
                 style={{

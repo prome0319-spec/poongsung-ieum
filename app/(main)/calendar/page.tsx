@@ -7,7 +7,7 @@ import {
   sortCalendarEvents,
 } from '@/lib/calendar-events'
 
-type UserType = 'admin' | 'pastor' | 'pm_leader' | 'soldier_leader' | 'general'
+import type { SystemRole } from '@/types/user'
 type ScheduleCategory =
   | 'worship'
   | 'meeting'
@@ -39,7 +39,8 @@ type CurrentProfileRow = {
   name: string | null
   nickname: string | null
   birth_date: string | null
-  user_type: UserType | null
+  system_role: SystemRole | null
+  user_type: string | null   // 레거시, 폴백용
   is_soldier: boolean
 }
 
@@ -198,17 +199,10 @@ function getAudienceLabel(audience: Audience) {
   }
 }
 
-function getAudienceDescription(userType: UserType | null) {
-  switch (userType) {
-    case 'soldier':
-      return '전체 + 군지음이 대상 일정이 보여져요.'
-    case 'general':
-      return '전체 + 지음이 대상 일정이 보여져요.'
-    case 'admin':
-      return '전체 / 군지음이 / 지음이 일정을 모두 확인할 수 있어요.'
-    default:
-      return '전체 일정이 보여져요.'
-  }
+function getAudienceDescription(systemRole: SystemRole | null, isSoldier: boolean) {
+  if (systemRole === 'admin' || systemRole === 'pastor') return '전체 / 군지음이 / 지음이 일정을 모두 확인할 수 있어요.'
+  if (isSoldier) return '전체 + 군지음이 대상 일정이 보여져요.'
+  return '전체 + 지음이 대상 일정이 보여져요.'
 }
 
 function getCategoryTheme(category: ScheduleCategory) {
@@ -476,18 +470,19 @@ export default async function CalendarPage({
 
   const profileResult = await supabase
     .from('profiles')
-    .select('id, name, nickname, birth_date, user_type, is_soldier')
+    .select('id, name, nickname, birth_date, system_role, user_type, is_soldier')
     .eq('id', user.id)
     .eq('onboarding_completed', true)
     .maybeSingle()
 
   const profile = profileResult.data as CurrentProfileRow | null
-  const userType = profile?.user_type ?? 'general'
+  const systemRole = profile?.system_role ?? null
   const isSoldier = profile?.is_soldier ?? false
+  const isSoldierLeader = profile?.user_type === 'soldier_leader'
   const visibleAudiences: Audience[] =
-    (userType === 'admin' || userType === 'pastor')
+    (systemRole === 'admin' || systemRole === 'pastor')
       ? ['all', 'soldier', 'general']
-      : (isSoldier || userType === 'soldier_leader')
+      : (isSoldier || isSoldierLeader)
         ? ['all', 'soldier']
         : ['all', 'general']
 
@@ -727,7 +722,7 @@ export default async function CalendarPage({
               이번 달 보기
             </Link>
 
-            {userType === 'admin' ? (
+            {systemRole === 'admin' ? (
               <Link
                 href="/admin/calendar"
                 style={{
@@ -821,7 +816,7 @@ export default async function CalendarPage({
                 lineHeight: 1.5,
               }}
             >
-              {getAudienceDescription(userType)}
+              {getAudienceDescription(systemRole, isSoldier)}
             </div>
           </div>
         </div>

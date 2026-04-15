@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { canManageSchedule, canDeleteSchedule } from '@/lib/utils/permissions'
-import type { UserType } from '@/types/user'
+import type { SystemRole } from '@/types/user'
 import { createSchedule, bulkCreateSchedules, deleteSchedule } from '@/app/(main)/calendar/actions'
 
 type ScheduleCategory = 'worship' | 'meeting' | 'event' | 'service' | 'general'
@@ -64,12 +64,12 @@ export default async function AdminCalendarPage({
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles').select('id, user_type').eq('id', user.id).maybeSingle()
+    .from('profiles').select('id, system_role').eq('id', user.id).maybeSingle()
 
-  const userType = (profile?.user_type as UserType | null) ?? null
-  if (!canManageSchedule(userType)) redirect('/calendar')
+  const systemRole = (profile?.system_role as SystemRole | null) ?? null
+  if (!canManageSchedule(systemRole)) redirect('/calendar')
 
-  const canDelete = canDeleteSchedule(userType)
+  const canDelete = canDeleteSchedule(systemRole)
   const params = await searchParams
   const message = params.message ?? null
 

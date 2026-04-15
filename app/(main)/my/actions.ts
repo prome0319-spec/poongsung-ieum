@@ -73,15 +73,17 @@ export async function updateMyProfile(formData: FormData) {
     goWithMessage('/my/edit', '전역일은 입대일보다 빠를 수 없습니다.')
   }
 
+  const isSoldierType = nextUserType === 'soldier' || nextUserType === 'soldier_leader'
   const payload = {
     name,
     nickname,
     bio: bio || null,
     birth_date: birthDate,
     user_type: nextUserType,
-    enlistment_date: (nextUserType === 'soldier' || nextUserType === 'soldier_leader') ? enlistmentDate : null,
-    discharge_date: (nextUserType === 'soldier' || nextUserType === 'soldier_leader') ? dischargeDate : null,
-    military_unit: (nextUserType === 'soldier' || nextUserType === 'soldier_leader') ? militaryUnit || null : null,
+    is_soldier: isSoldierType,
+    enlistment_date: isSoldierType ? enlistmentDate : null,
+    discharge_date: isSoldierType ? dischargeDate : null,
+    military_unit: isSoldierType ? militaryUnit || null : null,
     updated_at: new Date().toISOString(),
   }
 

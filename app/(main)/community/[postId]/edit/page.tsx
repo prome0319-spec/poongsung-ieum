@@ -3,8 +3,6 @@ import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { updatePost } from '../../actions'
 
-type UserType = 'soldier' | 'general' | 'admin'
-
 type Post = {
   id: string
   author_id: string
@@ -80,19 +78,20 @@ export default async function CommunityPostEditPage({
 
   const { data: myProfile } = await supabase
     .from('profiles')
-    .select('id, user_type')
+    .select('id, system_role, is_soldier')
     .eq('id', user.id)
     .maybeSingle()
 
-  const userType = (myProfile?.user_type as UserType | null) ?? null
-  const canManage = user.id === post.author_id || userType === 'admin'
+  const sr = myProfile?.system_role
+  const isAdminOrPastorUser = sr === 'admin' || sr === 'pastor'
+  const canManage = user.id === post.author_id || isAdminOrPastorUser
 
   if (!canManage) {
     redirect(`/community/${postId}`)
   }
 
-  const canWriteSoldier = userType === 'soldier' || userType === 'admin'
-  const canWriteNotice = userType === 'admin'
+  const canWriteSoldier = !!myProfile?.is_soldier || isAdminOrPastorUser
+  const canWriteNotice = isAdminOrPastorUser
 
   return (
     <main className="page stack">

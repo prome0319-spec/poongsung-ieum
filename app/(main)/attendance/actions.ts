@@ -3,8 +3,9 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { loadUserContext } from '@/lib/utils/user-context'
 import { canRecordAttendance } from '@/lib/utils/permissions'
-import type { UserType, AttendanceStatus } from '@/types/user'
+import type { AttendanceStatus } from '@/types/user'
 
 function goWithMessage(path: string, message: string): never {
   const sep = path.includes('?') ? '&' : '?'
@@ -21,17 +22,10 @@ async function getAuthorized() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, user_type, pm_group_id')
-    .eq('id', user.id)
-    .maybeSingle()
+  const ctx = await loadUserContext(user.id)
+  if (!canRecordAttendance(ctx)) redirect('/home')
 
-  if (!canRecordAttendance(profile?.user_type as UserType | null)) {
-    redirect('/home')
-  }
-
-  return { supabase, user, profile }
+  return { supabase, user, ctx }
 }
 
 export async function upsertAttendance(formData: FormData) {

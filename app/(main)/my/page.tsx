@@ -3,16 +3,18 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../../lib/supabase/server'
 import { logout } from '../../(auth)/actions'
-import { getUserTypeLabel, isSoldier as checkSoldier, canViewAttendance, canManageHomeNotice, isAdmin as checkAdmin, isPastor as checkPastor } from '@/lib/utils/permissions'
-import type { UserType } from '@/types/user'
+import { getUserTypeLabel, canManageHomeNotice, isAdmin as checkAdmin, isPastor as checkPastor, isAdminOrPastor } from '@/lib/utils/permissions'
+import type { SystemRole, UserType } from '@/types/user'
 
 type ProfileRow = {
   id: string
   email: string | null
   name: string | null
   nickname: string | null
+  system_role: SystemRole
   user_type: UserType | null
   is_soldier: boolean
+  pm_group_id: string | null
   bio: string | null
   birth_date: string | null
   enlistment_date: string | null
@@ -68,17 +70,21 @@ export default async function MyPage() {
 
   const { data } = await supabase
     .from('profiles')
-    .select('id, email, name, nickname, user_type, is_soldier, bio, birth_date, enlistment_date, discharge_date, military_unit, onboarding_completed')
+    .select('id, email, name, nickname, system_role, user_type, is_soldier, pm_group_id, bio, birth_date, enlistment_date, discharge_date, military_unit, onboarding_completed')
     .eq('id', user.id)
     .maybeSingle()
 
   const profile = data as ProfileRow | null
-  const ut = profile?.user_type as UserType | null
+  const sysRole = profile?.system_role ?? null
   const isSoldier = profile?.is_soldier ?? false
-  const isAdminUser = checkAdmin(ut)
-  const isPastorUser = checkPastor(ut)
-  const showAttendance = canViewAttendance(ut)
-  const showNoticeAdmin = canManageHomeNotice(ut)
+  const isAdminUser = checkAdmin(sysRole)
+  const isPastorUser = checkPastor(sysRole)
+  const showAttendance =
+    isAdminOrPastor(sysRole) ||
+    !!profile?.pm_group_id ||
+    profile?.user_type === 'pm_leader' ||
+    profile?.user_type === 'soldier_leader'
+  const showNoticeAdmin = canManageHomeNotice(sysRole)
   const displayName = getDisplayName(profile ?? { name: null, nickname: null })
   const ddayInfo = isSoldier ? getDdayInfo(profile?.discharge_date ?? null) : null
   const avatarSrc = isSoldier ? '/avatar-soldier.svg' : '/avatar-default.svg'
@@ -86,10 +92,19 @@ export default async function MyPage() {
   const menuItems: MenuItem[] = [
     { icon: '✏️', label: '프로필 수정', href: '/my/edit', desc: '이름, 닉네임, 소개 변경' },
     ...(showAttendance ? [{ icon: '📋', label: '출석체크', href: '/attendance', desc: '주일 출석 관리' }] : []),
-    ...(showNoticeAdmin ? [{ icon: '📣', label: '공지 관리', href: '/admin/notices', desc: '홈 팝업 공지 등록' }] : []),
-    ...(isAdminUser || isPastorUser ? [{ icon: '👥', label: '사용자 관리', href: '/admin/users', desc: '회원 정보 및 역할 관리', adminOnly: true }] : []),
-    ...(isAdminUser || isPastorUser ? [{ icon: '📅', label: '일정 관리', href: '/admin/calendar', desc: '일정 등록·수정·삭제', adminOnly: true }] : []),
-    { icon: '🔔', label: '알림 설정', href: '#', desc: '준비 중' },
+    // 관리자/목사: 관리 메뉴
+    ...(isAdminUser || isPastorUser ? [
+      { icon: '📣', label: '공지 관리', href: '/admin/notices', desc: '홈 팝업 공지 등록', adminOnly: true },
+      { icon: '👥', label: '사용자 관리', href: '/admin/users', desc: '회원 정보 및 역할 관리', adminOnly: true },
+      { icon: '📅', label: '일정 관리', href: '/admin/calendar', desc: '일정 등록·수정·삭제', adminOnly: true },
+      { icon: '🤝', label: '상담 관리', href: '/admin/counseling', desc: '멤버 상담 신청 확인', adminOnly: true },
+      { icon: '✋', label: '봉사 관리', href: '/admin/volunteer', desc: '봉사 일정 등록', adminOnly: true },
+    ] : [
+      // 일반 멤버: 바로가기
+      ...(showNoticeAdmin ? [{ icon: '📣', label: '공지 관리', href: '/admin/notices', desc: '홈 팝업 공지 등록' }] : []),
+      { icon: '🤝', label: '상담 신청', href: '/counseling', desc: '내 상담 신청 내역' },
+      { icon: '✋', label: '봉사 신청', href: '/volunteer', desc: '봉사 일정 확인·신청' },
+    ]),
     { icon: '🔒', label: '로그아웃', action: true, danger: true, desc: '현재 세션 종료' },
   ]
 

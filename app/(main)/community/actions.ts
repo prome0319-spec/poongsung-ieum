@@ -4,8 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-import { canWriteNotice, canAccessSoldierContent } from '@/lib/utils/permissions'
-import type { UserType } from '@/types/user'
+import { canWriteNotice, isAdminOrPastor } from '@/lib/utils/permissions'
+import type { SystemRole } from '@/types/user'
 
 type PostCategory = 'notice' | 'free' | 'prayer' | 'soldier'
 
@@ -13,24 +13,25 @@ function toText(value: FormDataEntryValue | null) {
   return String(value ?? '').trim()
 }
 
-function isAdmin(userType: UserType | null) {
-  return userType === 'admin'
-}
-
 function goWithMessage(path: string, message: string): never {
   const separator = path.includes('?') ? '&' : '?'
   redirect(`${path}${separator}message=${encodeURIComponent(message)}`)
 }
 
+function canAccessSoldierCategory(systemRole: SystemRole | null, isSoldier: boolean): boolean {
+  return isAdminOrPastor(systemRole) || isSoldier
+}
+
 function normalizeCategoryByRole(
   rawValue: string,
-  userType: UserType | null
+  systemRole: SystemRole | null,
+  isSoldier: boolean
 ): PostCategory {
-  if (rawValue === 'notice' && canWriteNotice(userType)) {
+  if (rawValue === 'notice' && canWriteNotice(systemRole)) {
     return 'notice'
   }
 
-  if (rawValue === 'soldier' && canAccessSoldierContent(userType)) {
+  if (rawValue === 'soldier' && canAccessSoldierCategory(systemRole, isSoldier)) {
     return 'soldier'
   }
 
@@ -53,24 +54,25 @@ async function getCurrentUserProfile() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, user_type')
+    .select('id, system_role, is_soldier')
     .eq('id', user.id)
     .maybeSingle()
 
   return {
     supabase,
     user,
-    userType: (profile?.user_type as UserType | null) ?? null,
+    systemRole: (profile?.system_role as SystemRole | null) ?? null,
+    isSoldier: profile?.is_soldier ?? false,
   }
 }
 
 export async function createPost(formData: FormData) {
-  const { supabase, user, userType } = await getCurrentUserProfile()
+  const { supabase, user, systemRole, isSoldier } = await getCurrentUserProfile()
 
   const title = toText(formData.get('title'))
   const content = toText(formData.get('content'))
   const rawCategory = toText(formData.get('category'))
-  const category = normalizeCategoryByRole(rawCategory, userType)
+  const category = normalizeCategoryByRole(rawCategory, systemRole, isSoldier)
   const noticeChecked = formData.get('is_notice') === 'on'
 
   if (!title || !content) {
@@ -82,7 +84,7 @@ export async function createPost(formData: FormData) {
     title,
     content,
     category,
-    is_notice: canWriteNotice(userType) ? noticeChecked : false,
+    is_notice: canWriteNotice(systemRole) ? noticeChecked : false,
   }
 
   const { data, error } = await supabase
@@ -134,13 +136,13 @@ export async function addComment(formData: FormData) {
 }
 
 export async function updatePost(formData: FormData) {
-  const { supabase, user, userType } = await getCurrentUserProfile()
+  const { supabase, user, systemRole, isSoldier } = await getCurrentUserProfile()
 
   const postId = toText(formData.get('post_id'))
   const title = toText(formData.get('title'))
   const content = toText(formData.get('content'))
   const rawCategory = toText(formData.get('category'))
-  const category = normalizeCategoryByRole(rawCategory, userType)
+  const category = normalizeCategoryByRole(rawCategory, systemRole, isSoldier)
   const noticeChecked = formData.get('is_notice') === 'on'
 
   if (!postId) {
@@ -161,7 +163,7 @@ export async function updatePost(formData: FormData) {
     redirect('/community?error=post_not_found')
   }
 
-  const canManage = post.author_id === user.id || isAdmin(userType)
+  const canManage = post.author_id === user.id || isAdminOrPastor(systemRole)
 
   if (!canManage) {
     redirect(`/community/${postId}?error=no_permission`)
@@ -171,7 +173,7 @@ export async function updatePost(formData: FormData) {
     title,
     content,
     category,
-    is_notice: canWriteNotice(userType) ? noticeChecked : false,
+    is_notice: canWriteNotice(systemRole) ? noticeChecked : false,
   }
 
   const { error } = await supabase
@@ -192,7 +194,7 @@ export async function updatePost(formData: FormData) {
 }
 
 export async function deletePost(formData: FormData) {
-  const { supabase, user, userType } = await getCurrentUserProfile()
+  const { supabase, user, systemRole } = await getCurrentUserProfile()
 
   const postId = toText(formData.get('post_id'))
 
@@ -210,7 +212,7 @@ export async function deletePost(formData: FormData) {
     redirect('/community?error=post_not_found')
   }
 
-  const canManage = post.author_id === user.id || isAdmin(userType)
+  const canManage = post.author_id === user.id || isAdminOrPastor(systemRole)
 
   if (!canManage) {
     redirect(`/community/${postId}?error=no_permission`)

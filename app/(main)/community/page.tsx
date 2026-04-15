@@ -2,7 +2,6 @@ import Link from 'next/link'
 import type { CSSProperties } from 'react'
 import { createClient } from '@/lib/supabase/server'
 
-type UserType = 'soldier' | 'general' | 'admin'
 type PostCategory = 'notice' | 'free' | 'prayer' | 'soldier'
 type FilterCategory = 'all' | 'notice' | 'free' | 'prayer' | 'soldier'
 
@@ -20,7 +19,6 @@ type ProfileRow = {
   id: string
   name: string | null
   nickname: string | null
-  user_type?: UserType | null
 }
 
 function formatDateTime(value: string) {
@@ -51,23 +49,17 @@ function getSnippet(content: string) {
   return content.length > 110 ? `${content.slice(0, 110)}…` : content
 }
 
-function getAllowedFilters(userType: UserType | null) {
-  if (userType === 'soldier' || userType === 'admin') {
-    return [
-      { key: 'all' as const, label: '전체' },
-      { key: 'notice' as const, label: '공지' },
-      { key: 'free' as const, label: '자유' },
-      { key: 'prayer' as const, label: '기도' },
-      { key: 'soldier' as const, label: '군지음' },
-    ]
-  }
-
-  return [
-    { key: 'all' as const, label: '전체' },
-    { key: 'notice' as const, label: '공지' },
-    { key: 'free' as const, label: '자유' },
-    { key: 'prayer' as const, label: '기도' },
+function getAllowedFilters(canSeeSoldier: boolean): { key: FilterCategory; label: string }[] {
+  const base: { key: FilterCategory; label: string }[] = [
+    { key: 'all', label: '전체' },
+    { key: 'notice', label: '공지' },
+    { key: 'free', label: '자유' },
+    { key: 'prayer', label: '기도' },
   ]
+  if (canSeeSoldier) {
+    base.push({ key: 'soldier', label: '군지음' })
+  }
+  return base
 }
 
 function getCategoryTone(category: PostCategory): CSSProperties {
@@ -230,19 +222,22 @@ export default async function CommunityPage({
     data: { user },
   } = await supabase.auth.getUser()
 
-  let viewerType: UserType | null = null
+  let canSeeSoldierContent = false
+  let isGeneralViewer = true
 
   if (user) {
     const { data: myProfile } = await supabase
       .from('profiles')
-      .select('id, user_type')
+      .select('id, system_role, is_soldier')
       .eq('id', user.id)
       .maybeSingle()
 
-    viewerType = (myProfile?.user_type as UserType | null) ?? null
+    const sr = myProfile?.system_role
+    canSeeSoldierContent = sr === 'admin' || sr === 'pastor' || !!myProfile?.is_soldier
+    isGeneralViewer = !canSeeSoldierContent
   }
 
-  const allowedFilters = getAllowedFilters(viewerType)
+  const allowedFilters = getAllowedFilters(canSeeSoldierContent)
   const allowedFilterKeys = allowedFilters.map((item) => item.key)
 
   const selectedCategory: FilterCategory = allowedFilterKeys.includes(
@@ -258,7 +253,7 @@ export default async function CommunityPage({
     .order('created_at', { ascending: false })
     .limit(5)
 
-  if (viewerType === 'general') {
+  if (isGeneralViewer) {
     pinnedQuery = pinnedQuery.neq('category', 'soldier')
   }
 
@@ -272,7 +267,7 @@ export default async function CommunityPage({
     .order('created_at', { ascending: false })
     .limit(30)
 
-  if (viewerType === 'general') {
+  if (isGeneralViewer) {
     postsQuery = postsQuery.neq('category', 'soldier')
   }
 

@@ -3,15 +3,17 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import HomeNoticePopup from '@/components/home/HomeNoticePopup'
-import { getUserTypeLabel, getUserTypeEmoji, isSoldier as checkSoldier, getAllowedAudiences, canViewAttendance } from '@/lib/utils/permissions'
-import type { UserType, HomeNotice } from '@/types/user'
+import { getUserTypeLabel, getUserTypeEmoji, getAllowedAudiences, isAdminOrPastor } from '@/lib/utils/permissions'
+import type { SystemRole, UserType, HomeNotice } from '@/types/user'
 
 type Profile = {
   id: string
   name: string | null
   nickname: string | null
+  system_role: SystemRole
   user_type: UserType | null
   is_soldier: boolean
+  pm_group_id: string | null
   bio: string | null
   military_unit: string | null
   enlistment_date: string | null
@@ -154,20 +156,20 @@ type QuickLink = {
   iconClass: string
 }
 
-function getQuickLinks(userType: Profile['user_type']): QuickLink[] {
-  if (userType === 'admin') {
+function getQuickLinks(systemRole: SystemRole): QuickLink[] {
+  if (systemRole === 'admin' || systemRole === 'pastor') {
     return [
       { href: '/admin/calendar', title: '일정 관리', description: '일정 등록·수정', icon: '📅', iconClass: 'purple' },
-      { href: '/admin/users', title: '사용자 관리', description: '회원 정보 확인', icon: '👥', iconClass: 'green' },
+      { href: '/admin/counseling', title: '상담 관리', description: '멤버 상담 신청', icon: '🤝', iconClass: 'green' },
+      { href: '/admin/volunteer', title: '봉사 관리', description: '봉사 일정 등록', icon: '✋', iconClass: '' },
       { href: '/community', title: '커뮤니티', description: '공지와 게시글', icon: '📋', iconClass: '' },
-      { href: '/chat', title: '채팅', description: '공지방과 소통방', icon: '💬', iconClass: 'kakao' },
     ]
   }
   return [
     { href: '/chat', title: '채팅', description: '소통방과 대화', icon: '💬', iconClass: 'kakao' },
-    { href: '/community', title: '커뮤니티', description: '공지와 게시글', icon: '📋', iconClass: '' },
+    { href: '/volunteer', title: '봉사 신청', description: '봉사 일정 확인', icon: '✋', iconClass: 'green' },
+    { href: '/counseling', title: '상담 신청', description: '목사님께 상담 요청', icon: '🤝', iconClass: '' },
     { href: '/calendar', title: '캘린더', description: '다가오는 일정', icon: '📅', iconClass: 'purple' },
-    { href: '/my', title: '마이페이지', description: '내 프로필 관리', icon: '👤', iconClass: 'green' },
   ]
 }
 
@@ -183,7 +185,7 @@ export default async function HomePage() {
   const { data: profileData } = await supabase
     .from('profiles')
     .select(
-      'id, name, nickname, user_type, is_soldier, bio, military_unit, enlistment_date, discharge_date, onboarding_completed'
+      'id, name, nickname, system_role, user_type, is_soldier, bio, military_unit, enlistment_date, discharge_date, pm_group_id, onboarding_completed'
     )
     .eq('id', user.id)
     .single()
@@ -192,7 +194,7 @@ export default async function HomePage() {
 
   if (!profile?.onboarding_completed || !profile.user_type) redirect('/onboarding')
 
-  const audiences = getAllowedAudiences(profile.user_type, profile.is_soldier)
+  const audiences = getAllowedAudiences(profile.system_role, profile.is_soldier)
   const nowIso = new Date().toISOString()
 
   const { data: scheduleData } = await supabase
@@ -276,10 +278,14 @@ export default async function HomePage() {
   const activeNotice = noticeData as HomeNotice | null
 
   const displayName = getDisplayName(profile)
-  const quickLinks = getQuickLinks(profile.user_type)
+  const quickLinks = getQuickLinks(profile.system_role)
   const ddayInfo = getDdayInfo(profile.discharge_date, profile.enlistment_date)
   const isSoldier = profile.is_soldier
-  const showAttendance = canViewAttendance(profile.user_type)
+  const showAttendance =
+    isAdminOrPastor(profile.system_role) ||
+    !!profile.pm_group_id ||
+    profile.user_type === 'pm_leader' ||
+    profile.user_type === 'soldier_leader'
   const avatarSrc = isSoldier ? '/avatar-soldier.svg' : '/avatar-default.svg'
   const heroBanner = isSoldier ? '/hero-military.svg' : '/hero-church.svg'
 
@@ -307,7 +313,7 @@ export default async function HomePage() {
           <p className="hero-banner-subtitle">
             {isSoldier
               ? '군 생활 속에서도 공동체와 함께합니다'
-              : profile.user_type === 'admin'
+              : profile.system_role === 'admin'
               ? '오늘도 공동체를 잘 부탁드립니다'
               : '공동체와 연결되는 풍성한 하루 되세요'}
           </p>

@@ -3,8 +3,6 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createPost } from '../actions'
 
-type UserType = 'soldier' | 'general' | 'admin'
-
 function InfoCard({
   title,
   description,
@@ -54,13 +52,13 @@ export default async function CommunityWritePage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, user_type')
+    .select('id, system_role, is_soldier')
     .eq('id', user.id)
     .maybeSingle()
 
-  const userType = (profile?.user_type as UserType | null) ?? null
-  const canWriteSoldier = userType === 'soldier' || userType === 'admin'
-  const canWriteNotice = userType === 'admin'
+  const sr = profile?.system_role
+  const canWriteSoldier = !!profile?.is_soldier || sr === 'admin' || sr === 'pastor'
+  const canWriteNotice = sr === 'admin' || sr === 'pastor'
 
   return (
     <main className="page stack">
@@ -151,11 +149,7 @@ export default async function CommunityWritePage() {
                 작성 가능 유형
               </div>
               <strong>
-                {userType === 'admin'
-                  ? '관리자'
-                  : userType === 'soldier'
-                  ? '군지음이'
-                  : '지음이'}
+                {canWriteNotice ? '관리자' : canWriteSoldier ? '군지음이' : '지음이'}
               </strong>
             </div>
 

@@ -12,7 +12,8 @@ type ProfileRow = {
   email: string
   name: string
   nickname: string | null
-  user_type: 'soldier' | 'general' | 'admin'
+  user_type: string | null
+  is_soldier: boolean
   bio: string | null
   birth_date: string | null
   enlistment_date: string | null
@@ -30,15 +31,16 @@ export default async function MyEditPage({ searchParams }: PageProps) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, email, name, nickname, user_type, bio, birth_date, enlistment_date, discharge_date, military_unit, onboarding_completed')
+    .select('id, email, name, nickname, user_type, is_soldier, bio, birth_date, enlistment_date, discharge_date, military_unit, onboarding_completed')
     .eq('id', user.id)
     .single()
 
   if (!profile) redirect('/onboarding')
 
-  const isAdmin = profile.user_type === 'admin'
-  const isSoldier = profile.user_type === 'soldier'
-  const editableUserType = profile.user_type === 'soldier' ? 'soldier' : 'general'
+  const LOCKED_TYPES = ['admin', 'pastor', 'pm_leader', 'soldier_leader']
+  const isLocked = LOCKED_TYPES.includes(profile.user_type ?? '')
+  const isSoldier = profile.is_soldier
+  const editableUserType = profile.is_soldier ? 'soldier' : 'general'
 
   return (
     <main className="page">
@@ -285,7 +287,7 @@ export default async function MyEditPage({ searchParams }: PageProps) {
           </div>
 
           <div style={{ padding: '16px 18px' }}>
-            {isAdmin ? (
+            {isLocked ? (
               <div>
                 <div
                   style={{
@@ -300,11 +302,13 @@ export default async function MyEditPage({ searchParams }: PageProps) {
                 >
                   <span style={{ fontSize: '22px' }}>🛡️</span>
                   <div>
-                    <p style={{ margin: 0, fontWeight: 700, color: 'var(--primary-strong)' }}>관리자</p>
-                    <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>관리자 유형은 변경할 수 없습니다.</p>
+                    <p style={{ margin: 0, fontWeight: 700, color: 'var(--primary-strong)' }}>
+                      {profile.user_type === 'pastor' ? '목사' : profile.user_type === 'pm_leader' ? 'PM지기' : profile.user_type === 'soldier_leader' ? '군지음 팀장' : '관리자'}
+                    </p>
+                    <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>이 유형은 직접 변경할 수 없습니다.</p>
                   </div>
                 </div>
-                <input type="hidden" name="user_type" value="admin" />
+                <input type="hidden" name="user_type" value={profile.user_type ?? 'general'} />
               </div>
             ) : (
               <div className="stack" style={{ gap: '10px' }}>

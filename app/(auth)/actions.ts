@@ -131,7 +131,8 @@ export async function saveOnboarding(formData: FormData) {
     email: user.email ?? null,
     name,
     nickname,
-    user_type: 'general',   // 역할은 기본값, 관리자가 나중에 변경
+    user_type: 'general',    // 레거시, Phase 4에서 제거 예정
+    system_role: 'member',   // 기본 접근 레벨
     is_soldier: isSoldier,
     bio: bio || null,
     birth_date: birthDate,
