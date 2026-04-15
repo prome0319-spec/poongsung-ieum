@@ -2,8 +2,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { canManageHomeNotice, getUserTypeLabel } from '@/lib/utils/permissions'
-import { toggleHomeNotice, deleteHomeNotice } from './actions'
+import { canManageHomeNotice } from '@/lib/utils/permissions'
+import { toggleHomeNotice } from './actions'
+import DeleteNoticeButton from './DeleteNoticeButton'
 import type { UserType } from '@/types/user'
 import type { HomeNotice } from '@/types/user'
 
@@ -161,18 +162,7 @@ export default async function AdminNoticesPage({ searchParams }: PageProps) {
                     </button>
                   </form>
 
-                  <form action={deleteHomeNotice} onSubmit={(e) => {
-                    if (!confirm('공지를 삭제하시겠습니까?')) e.preventDefault()
-                  }} style={{ flex: 1 }}>
-                    <input type="hidden" name="id" value={notice.id} />
-                    <button
-                      type="submit"
-                      className="button danger"
-                      style={{ minHeight: '38px', fontSize: '13px' }}
-                    >
-                      삭제
-                    </button>
-                  </form>
+                  <DeleteNoticeButton noticeId={notice.id} />
                 </div>
               </div>
             )
