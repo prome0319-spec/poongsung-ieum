@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createSchedule, deleteSchedule } from '@/app/(main)/calendar/actions'
+import { canManageSchedule, canDeleteSchedule } from '@/lib/utils/permissions'
+import type { UserType } from '@/types/user'
+import { createSchedule, bulkCreateSchedules, deleteSchedule } from '@/app/(main)/calendar/actions'
 
-type UserType = 'soldier' | 'general' | 'admin'
 type ScheduleCategory = 'worship' | 'meeting' | 'event' | 'service' | 'general'
 type Audience = 'all' | 'soldier' | 'general'
 
@@ -16,702 +17,337 @@ type ScheduleRow = {
   audience: Audience
   start_at: string
   end_at: string
-  is_recurring: boolean
-  recurrence_type: 'weekly' | null
-  recurrence_day_of_week: number | null
-  recurrence_end_date: string | null
-  base_start_time: string | null
-  base_end_time: string | null
 }
 
 const SEOUL_TZ = 'Asia/Seoul'
-const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'] as const
+
+const CATEGORY_LABELS: Record<ScheduleCategory, string> = {
+  worship: '예배', meeting: '모임', event: '행사', service: '섬김', general: '일반',
+}
+const AUDIENCE_LABELS: Record<Audience, string> = {
+  all: '전체', soldier: '군지음이', general: '지음이',
+}
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat('ko-KR', {
     timeZone: SEOUL_TZ,
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    weekday: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
+    year: 'numeric', month: 'numeric', day: 'numeric',
+    weekday: 'short', hour: '2-digit', minute: '2-digit',
   }).format(new Date(value))
 }
 
-function formatTime(value: string | null) {
-  if (!value) return '-'
-  return value.slice(0, 5)
+const INPUT_STYLE = {
+  width: '100%',
+  border: '1.5px solid var(--primary-border)',
+  borderRadius: 10,
+  padding: '10px 12px',
+  font: 'inherit',
+  fontSize: 14,
+  boxSizing: 'border-box' as const,
 }
 
-function getCategoryLabel(category: ScheduleCategory) {
-  switch (category) {
-    case 'worship':
-      return '예배'
-    case 'meeting':
-      return '모임'
-    case 'event':
-      return '행사'
-    case 'service':
-      return '섬김'
-    default:
-      return '일반'
-  }
+const LABEL_STYLE = { fontWeight: 700, fontSize: 13, color: 'var(--text-muted)', marginBottom: 6, display: 'block' as const }
+const SECTION_STYLE = {
+  background: '#fff',
+  border: '1px solid var(--primary-border)',
+  borderRadius: 'var(--r-lg)',
+  padding: 20,
 }
 
-function getAudienceLabel(audience: Audience) {
-  switch (audience) {
-    case 'soldier':
-      return '군지음이'
-    case 'general':
-      return '지음이'
-    default:
-      return '전체'
-  }
-}
-
-function getRecurringLabel(schedule: ScheduleRow) {
-  if (!schedule.is_recurring || schedule.recurrence_type !== 'weekly') {
-    return null
-  }
-
-  const weekday = WEEKDAY_LABELS[schedule.recurrence_day_of_week ?? 0]
-  return `매주 ${weekday}요일 ${formatTime(schedule.base_start_time)} ~ ${formatTime(
-    schedule.base_end_time
-  )}`
-}
-
-export default async function AdminCalendarPage() {
+export default async function AdminCalendarPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>
+}) {
   const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login')
-  }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, user_type')
-    .eq('id', user.id)
-    .maybeSingle()
+    .from('profiles').select('id, user_type').eq('id', user.id).maybeSingle()
 
   const userType = (profile?.user_type as UserType | null) ?? null
+  if (!canManageSchedule(userType)) redirect('/calendar')
 
-  if (userType !== 'admin') {
-    redirect('/calendar')
-  }
+  const canDelete = canDeleteSchedule(userType)
+  const params = await searchParams
+  const message = params.message ?? null
 
   const nowIso = new Date().toISOString()
-  const scheduleSelect = `
-    id,
-    title,
-    description,
-    location,
-    category,
-    audience,
-    start_at,
-    end_at,
-    is_recurring,
-    recurrence_type,
-    recurrence_day_of_week,
-    recurrence_end_date,
-    base_start_time,
-    base_end_time
-  `
+  const scheduleSelect = 'id, title, description, location, category, audience, start_at, end_at'
 
   const [{ data: upcomingRows }, { data: recentRows }] = await Promise.all([
-    supabase
-      .from('schedules')
-      .select(scheduleSelect)
-      .gte('end_at', nowIso)
-      .order('start_at', { ascending: true })
-      .limit(20),
-    supabase
-      .from('schedules')
-      .select(scheduleSelect)
-      .lt('end_at', nowIso)
-      .order('start_at', { ascending: false })
-      .limit(10),
+    supabase.from('schedules').select(scheduleSelect).gte('end_at', nowIso).order('start_at', { ascending: true }).limit(30),
+    supabase.from('schedules').select(scheduleSelect).lt('end_at', nowIso).order('start_at', { ascending: false }).limit(15),
   ])
 
   const upcomingSchedules = (upcomingRows ?? []) as ScheduleRow[]
   const recentSchedules = (recentRows ?? []) as ScheduleRow[]
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gap: 16,
-        paddingBottom: 88,
-      }}
-    >
-      <section
-        style={{
-          border: '1px solid #e5e7eb',
-          borderRadius: 16,
-          background: '#fff',
-          padding: 16,
-          display: 'grid',
-          gap: 14,
-        }}
-      >
-        <div>
-          <h1 style={{ margin: 0, fontSize: 24 }}>관리자 일정 관리</h1>
-          <p style={{ margin: '8px 0 0', color: '#6b7280' }}>
-            여기서 일정을 등록하고, 수정하고, 삭제할 수 있어요.
-          </p>
+    <main className="page" style={{ paddingBottom: 120, display: 'grid', gap: 20 }}>
+      {/* Header */}
+      <div>
+        <Link href="/admin" style={{ fontSize: 14, color: 'var(--primary)', display: 'inline-block', marginBottom: 12 }}>
+          ← 관리자 대시보드
+        </Link>
+        <h1 style={{ margin: 0, fontSize: 22, color: 'var(--text)' }}>일정 관리</h1>
+        <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: 14 }}>일정을 등록하고 수정·삭제합니다.</p>
+      </div>
+
+      {message && (
+        <div style={{ padding: '12px 16px', borderRadius: 10, background: 'var(--primary-soft)', color: 'var(--primary-dark)', fontSize: 14 }}>
+          {message}
         </div>
+      )}
 
-        <form
-          action={createSchedule}
-          style={{
-            display: 'grid',
-            gap: 12,
-            borderTop: '1px solid #f1f5f9',
-            paddingTop: 16,
-          }}
-        >
-          <div style={{ display: 'grid', gap: 6 }}>
-            <label htmlFor="title" style={{ fontWeight: 600 }}>
-              일정 제목
-            </label>
-            <input
-              id="title"
-              name="title"
-              required
-              placeholder="예: 청년부 금요예배"
-              style={{
-                width: '100%',
-                border: '1px solid #d1d5db',
-                borderRadius: 12,
-                padding: 12,
-                font: 'inherit',
-              }}
-            />
-          </div>
+      {/* ── 단건 등록 ── */}
+      <section style={SECTION_STYLE}>
+        <h2 style={{ margin: '0 0 16px', fontSize: 16 }}>일정 등록</h2>
+        <form action={createSchedule} style={{ display: 'grid', gap: 14 }}>
+          <FormField label="제목 *">
+            <input name="title" required placeholder="예: 청년부 주일예배" style={INPUT_STYLE} />
+          </FormField>
+          <FormField label="설명">
+            <textarea name="description" rows={3} placeholder="일정 설명" style={{ ...INPUT_STYLE, resize: 'vertical' }} />
+          </FormField>
+          <FormField label="장소">
+            <input name="location" placeholder="예: 비전홀" style={INPUT_STYLE} />
+          </FormField>
 
-          <div style={{ display: 'grid', gap: 6 }}>
-            <label htmlFor="description" style={{ fontWeight: 600 }}>
-              설명
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              rows={4}
-              placeholder="일정 설명을 입력하세요"
-              style={{
-                width: '100%',
-                border: '1px solid #d1d5db',
-                borderRadius: 12,
-                padding: 12,
-                font: 'inherit',
-                resize: 'vertical',
-              }}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gap: 6 }}>
-            <label htmlFor="location" style={{ fontWeight: 600 }}>
-              장소
-            </label>
-            <input
-              id="location"
-              name="location"
-              placeholder="예: 비전홀"
-              style={{
-                width: '100%',
-                border: '1px solid #d1d5db',
-                borderRadius: 12,
-                padding: 12,
-                font: 'inherit',
-              }}
-            />
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gap: 12,
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            }}
-          >
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label htmlFor="category" style={{ fontWeight: 600 }}>
-                일정 분류
-              </label>
-              <select
-                id="category"
-                name="category"
-                defaultValue="general"
-                style={{
-                  width: '100%',
-                  border: '1px solid #d1d5db',
-                  borderRadius: 12,
-                  padding: 12,
-                  font: 'inherit',
-                  background: '#fff',
-                }}
-              >
+          <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+            <FormField label="분류">
+              <select name="category" defaultValue="worship" style={INPUT_STYLE}>
                 <option value="worship">예배</option>
                 <option value="meeting">모임</option>
                 <option value="event">행사</option>
                 <option value="service">섬김</option>
                 <option value="general">일반</option>
               </select>
-            </div>
-
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label htmlFor="audience" style={{ fontWeight: 600 }}>
-                공개 대상
-              </label>
-              <select
-                id="audience"
-                name="audience"
-                defaultValue="all"
-                style={{
-                  width: '100%',
-                  border: '1px solid #d1d5db',
-                  borderRadius: 12,
-                  padding: 12,
-                  font: 'inherit',
-                  background: '#fff',
-                }}
-              >
+            </FormField>
+            <FormField label="공개 대상">
+              <select name="audience" defaultValue="all" style={INPUT_STYLE}>
                 <option value="all">전체</option>
                 <option value="soldier">군지음이</option>
                 <option value="general">지음이</option>
               </select>
-            </div>
+            </FormField>
+            <FormField label="시작 일시 *">
+              <input name="start_at" type="datetime-local" required style={INPUT_STYLE} />
+            </FormField>
+            <FormField label="종료 일시 *">
+              <input name="end_at" type="datetime-local" required style={INPUT_STYLE} />
+            </FormField>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gap: 12,
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            }}
-          >
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label htmlFor="start_at" style={{ fontWeight: 600 }}>
-                시작 일시
-              </label>
-              <input
-                id="start_at"
-                name="start_at"
-                type="datetime-local"
-                required
-                style={{
-                  width: '100%',
-                  border: '1px solid #d1d5db',
-                  borderRadius: 12,
-                  padding: 12,
-                  font: 'inherit',
-                }}
-              />
-            </div>
-
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label htmlFor="end_at" style={{ fontWeight: 600 }}>
-                종료 일시
-              </label>
-              <input
-                id="end_at"
-                name="end_at"
-                type="datetime-local"
-                required
-                style={{
-                  width: '100%',
-                  border: '1px solid #d1d5db',
-                  borderRadius: 12,
-                  padding: 12,
-                  font: 'inherit',
-                }}
-              />
-            </div>
-          </div>
-
-          <section
-            style={{
-              display: 'grid',
-              gap: 10,
-              padding: 12,
-              borderRadius: 12,
-              background: '#f8fafc',
-              border: '1px solid #e5e7eb',
-            }}
-          >
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input type="checkbox" name="is_recurring" />
-              반복 일정으로 등록
-            </label>
-
-            <div
-              style={{
-                display: 'grid',
-                gap: 12,
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              }}
-            >
-              <div style={{ display: 'grid', gap: 6 }}>
-                <label htmlFor="recurrence_type">반복 유형</label>
-                <select
-                  id="recurrence_type"
-                  name="recurrence_type"
-                  defaultValue=""
-                  style={{
-                    width: '100%',
-                    border: '1px solid #d1d5db',
-                    borderRadius: 12,
-                    padding: 12,
-                    font: 'inherit',
-                    background: '#fff',
-                  }}
-                >
-                  <option value="">반복 안 함</option>
-                  <option value="weekly">매주</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'grid', gap: 6 }}>
-                <label htmlFor="recurrence_day_of_week">반복 요일</label>
-                <select
-                  id="recurrence_day_of_week"
-                  name="recurrence_day_of_week"
-                  defaultValue="0"
-                  style={{
-                    width: '100%',
-                    border: '1px solid #d1d5db',
-                    borderRadius: 12,
-                    padding: 12,
-                    font: 'inherit',
-                    background: '#fff',
-                  }}
-                >
-                  <option value="0">일요일</option>
-                  <option value="1">월요일</option>
-                  <option value="2">화요일</option>
-                  <option value="3">수요일</option>
-                  <option value="4">목요일</option>
-                  <option value="5">금요일</option>
-                  <option value="6">토요일</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'grid', gap: 6 }}>
-                <label htmlFor="recurrence_end_date">반복 종료일</label>
-                <input
-                  id="recurrence_end_date"
-                  name="recurrence_end_date"
-                  type="date"
-                  style={{
-                    width: '100%',
-                    border: '1px solid #d1d5db',
-                    borderRadius: 12,
-                    padding: 12,
-                    font: 'inherit',
-                    background: '#fff',
-                  }}
-                />
-              </div>
-            </div>
-
-            <p style={{ margin: 0, color: '#666', fontSize: 13 }}>
-              반복 일정일 때는 시작 일시와 종료 일시의 시간을 기준으로 매주 일정이
-              만들어집니다.
-            </p>
-          </section>
-
-          <div>
-            <button
-              type="submit"
-              style={{
-                padding: '10px 14px',
-                borderRadius: 10,
-                border: 'none',
-                background: '#111827',
-                color: '#fff',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              일정 등록
-            </button>
-          </div>
+          <SubmitButton>일정 등록</SubmitButton>
         </form>
       </section>
 
-      <section
-        style={{
-          border: '1px solid #e5e7eb',
-          borderRadius: 16,
-          background: '#fff',
-          padding: 16,
-          display: 'grid',
-          gap: 12,
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0, fontSize: 18 }}>예정 일정</h2>
-          <p style={{ margin: '8px 0 0', color: '#6b7280' }}>
-            앞으로 진행될 일정을 수정하거나 삭제할 수 있어요.
-          </p>
-        </div>
+      {/* ── 일괄 등록 ── */}
+      <section style={{ ...SECTION_STYLE, borderColor: 'var(--primary)', background: 'var(--primary-softer)' }}>
+        <h2 style={{ margin: '0 0 6px', fontSize: 16 }}>주기적 일정 일괄 등록</h2>
+        <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)' }}>
+          기간 내 특정 요일에 맞춰 개별 일정을 한 번에 생성합니다. 각 일정은 독립적으로 수정·삭제할 수 있습니다.
+        </p>
+        <form action={bulkCreateSchedules} style={{ display: 'grid', gap: 14 }}>
+          <FormField label="제목 *">
+            <input name="title" required placeholder="예: 청년부 주일예배" style={INPUT_STYLE} />
+          </FormField>
+          <FormField label="설명">
+            <textarea name="description" rows={2} placeholder="일정 설명 (선택)" style={{ ...INPUT_STYLE, resize: 'vertical' }} />
+          </FormField>
+          <FormField label="장소">
+            <input name="location" placeholder="예: 비전홀" style={INPUT_STYLE} />
+          </FormField>
 
-        {upcomingSchedules.length === 0 ? (
-          <p style={{ margin: 0, color: '#6b7280' }}>예정 일정이 없어요.</p>
-        ) : (
-          <div style={{ display: 'grid', gap: 10 }}>
-            {upcomingSchedules.map((schedule) => {
-              const recurringLabel = getRecurringLabel(schedule)
-
-              return (
-                <div
-                  key={schedule.id}
-                  style={{
-                    border: '1px solid #f1f5f9',
-                    borderRadius: 14,
-                    padding: 14,
-                    display: 'grid',
-                    gap: 10,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: 8,
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: 12,
-                        padding: '4px 8px',
-                        borderRadius: 999,
-                        background: '#f3f4f6',
-                      }}
-                    >
-                      {getCategoryLabel(schedule.category)}
-                    </span>
-
-                    <span
-                      style={{
-                        fontSize: 12,
-                        padding: '4px 8px',
-                        borderRadius: 999,
-                        background: '#f9fafb',
-                        color: '#6b7280',
-                      }}
-                    >
-                      {getAudienceLabel(schedule.audience)}
-                    </span>
-
-                    {recurringLabel && (
-                      <span
-                        style={{
-                          fontSize: 12,
-                          padding: '4px 8px',
-                          borderRadius: 999,
-                          background: '#eff6ff',
-                          color: '#1d4ed8',
-                        }}
-                      >
-                        {recurringLabel}
-                      </span>
-                    )}
-                  </div>
-
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{schedule.title}</div>
-
-                  <div style={{ color: '#4b5563', fontSize: 14, lineHeight: 1.6 }}>
-                    <div>시작: {formatDateTime(schedule.start_at)}</div>
-                    <div>종료: {formatDateTime(schedule.end_at)}</div>
-                    {schedule.location && <div>장소: {schedule.location}</div>}
-                    {schedule.description && <div>설명: {schedule.description}</div>}
-                  </div>
-
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <Link
-                      href={`/calendar/${schedule.id}`}
-                      style={{
-                        textDecoration: 'none',
-                        padding: '10px 14px',
-                        borderRadius: 10,
-                        border: '1px solid #d1d5db',
-                        color: '#111827',
-                        fontWeight: 600,
-                      }}
-                    >
-                      상세 보기
-                    </Link>
-
-                    <Link
-                      href={`/admin/calendar/${schedule.id}/edit`}
-                      style={{
-                        textDecoration: 'none',
-                        padding: '10px 14px',
-                        borderRadius: 10,
-                        border: '1px solid #d1d5db',
-                        color: '#111827',
-                        fontWeight: 600,
-                      }}
-                    >
-                      수정하기
-                    </Link>
-
-                    <form action={deleteSchedule}>
-                      <input type="hidden" name="schedule_id" value={schedule.id} />
-                      <button
-                        type="submit"
-                        style={{
-                          padding: '10px 14px',
-                          borderRadius: 10,
-                          border: '1px solid #ef4444',
-                          background: '#fff',
-                          color: '#ef4444',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        삭제하기
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              )
-            })}
+          <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            <FormField label="분류">
+              <select name="category" defaultValue="worship" style={INPUT_STYLE}>
+                <option value="worship">예배</option>
+                <option value="meeting">모임</option>
+                <option value="event">행사</option>
+                <option value="service">섬김</option>
+                <option value="general">일반</option>
+              </select>
+            </FormField>
+            <FormField label="공개 대상">
+              <select name="audience" defaultValue="all" style={INPUT_STYLE}>
+                <option value="all">전체</option>
+                <option value="soldier">군지음이</option>
+                <option value="general">지음이</option>
+              </select>
+            </FormField>
+            <FormField label="요일 *">
+              <select name="day_of_week" defaultValue="0" style={INPUT_STYLE}>
+                <option value="0">일요일</option>
+                <option value="1">월요일</option>
+                <option value="2">화요일</option>
+                <option value="3">수요일</option>
+                <option value="4">목요일</option>
+                <option value="5">금요일</option>
+                <option value="6">토요일</option>
+              </select>
+            </FormField>
           </div>
-        )}
+
+          <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            <FormField label="시작일 (첫 번째 일정) *">
+              <input name="start_date" type="date" required style={INPUT_STYLE} />
+            </FormField>
+            <FormField label="종료일 (마지막 기준일) *">
+              <input name="end_date" type="date" required style={INPUT_STYLE} />
+            </FormField>
+            <FormField label="시작 시각 *">
+              <input name="start_time" type="time" required defaultValue="11:00" style={INPUT_STYLE} />
+            </FormField>
+            <FormField label="종료 시각 *">
+              <input name="end_time" type="time" required defaultValue="12:30" style={INPUT_STYLE} />
+            </FormField>
+          </div>
+
+          <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(124,107,196,0.1)', fontSize: 13, color: 'var(--primary-dark)' }}>
+            최대 104주(약 2년)까지 등록 가능합니다. 각 일정은 완전히 독립적으로 수정·삭제됩니다.
+          </div>
+
+          <SubmitButton>일괄 등록</SubmitButton>
+        </form>
       </section>
 
-      <section
-        style={{
-          border: '1px solid #e5e7eb',
-          borderRadius: 16,
-          background: '#fff',
-          padding: 16,
-          display: 'grid',
-          gap: 12,
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0, fontSize: 18 }}>최근 지난 일정</h2>
-          <p style={{ margin: '8px 0 0', color: '#6b7280' }}>
-            최근 끝난 일정도 필요하면 다시 수정해서 재사용할 수 있어요.
-          </p>
-        </div>
+      {/* ── 예정 일정 ── */}
+      <ScheduleList
+        title="예정 일정"
+        subtitle="앞으로 진행될 일정을 수정·삭제할 수 있습니다."
+        schedules={upcomingSchedules}
+        canDelete={canDelete}
+        formatDateTime={formatDateTime}
+        categoryLabels={CATEGORY_LABELS}
+        audienceLabels={AUDIENCE_LABELS}
+      />
 
-        {recentSchedules.length === 0 ? (
-          <p style={{ margin: 0, color: '#6b7280' }}>최근 지난 일정이 없어요.</p>
-        ) : (
-          <div style={{ display: 'grid', gap: 10 }}>
-            {recentSchedules.map((schedule) => {
-              const recurringLabel = getRecurringLabel(schedule)
+      {/* ── 지난 일정 ── */}
+      <ScheduleList
+        title="최근 지난 일정"
+        subtitle="종료된 일정도 수정해서 재사용할 수 있습니다."
+        schedules={recentSchedules}
+        canDelete={canDelete}
+        formatDateTime={formatDateTime}
+        categoryLabels={CATEGORY_LABELS}
+        audienceLabels={AUDIENCE_LABELS}
+        showDelete={false}
+      />
+    </main>
+  )
+}
 
-              return (
-                <div
-                  key={schedule.id}
-                  style={{
-                    border: '1px solid #f1f5f9',
-                    borderRadius: 14,
-                    padding: 14,
-                    display: 'grid',
-                    gap: 10,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: 8,
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: 12,
-                        padding: '4px 8px',
-                        borderRadius: 999,
-                        background: '#f3f4f6',
-                      }}
-                    >
-                      {getCategoryLabel(schedule.category)}
-                    </span>
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-                    <span
-                      style={{
-                        fontSize: 12,
-                        padding: '4px 8px',
-                        borderRadius: 999,
-                        background: '#f9fafb',
-                        color: '#6b7280',
-                      }}
-                    >
-                      {getAudienceLabel(schedule.audience)}
-                    </span>
-
-                    {recurringLabel && (
-                      <span
-                        style={{
-                          fontSize: 12,
-                          padding: '4px 8px',
-                          borderRadius: 999,
-                          background: '#eff6ff',
-                          color: '#1d4ed8',
-                        }}
-                      >
-                        {recurringLabel}
-                      </span>
-                    )}
-                  </div>
-
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{schedule.title}</div>
-
-                  <div style={{ color: '#4b5563', fontSize: 14, lineHeight: 1.6 }}>
-                    <div>시작: {formatDateTime(schedule.start_at)}</div>
-                    <div>종료: {formatDateTime(schedule.end_at)}</div>
-                    {schedule.location && <div>장소: {schedule.location}</div>}
-                    {schedule.description && <div>설명: {schedule.description}</div>}
-                  </div>
-
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <Link
-                      href={`/calendar/${schedule.id}`}
-                      style={{
-                        textDecoration: 'none',
-                        padding: '10px 14px',
-                        borderRadius: 10,
-                        border: '1px solid #d1d5db',
-                        color: '#111827',
-                        fontWeight: 600,
-                      }}
-                    >
-                      상세 보기
-                    </Link>
-
-                    <Link
-                      href={`/admin/calendar/${schedule.id}/edit`}
-                      style={{
-                        textDecoration: 'none',
-                        padding: '10px 14px',
-                        borderRadius: 10,
-                        border: '1px solid #d1d5db',
-                        color: '#111827',
-                        fontWeight: 600,
-                      }}
-                    >
-                      수정하기
-                    </Link>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </section>
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'grid', gap: 6 }}>
+      <label style={LABEL_STYLE}>{label}</label>
+      {children}
     </div>
   )
+}
+
+function SubmitButton({ children }: { children: React.ReactNode }) {
+  return (
+    <button
+      type="submit"
+      style={{
+        padding: '11px 20px',
+        borderRadius: 10,
+        border: 'none',
+        background: 'var(--primary)',
+        color: '#fff',
+        fontWeight: 700,
+        fontSize: 14,
+        cursor: 'pointer',
+        alignSelf: 'start',
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+function ScheduleList({
+  title, subtitle, schedules, canDelete, formatDateTime, categoryLabels, audienceLabels, showDelete = true,
+}: {
+  title: string
+  subtitle: string
+  schedules: ScheduleRow[]
+  canDelete: boolean
+  formatDateTime: (v: string) => string
+  categoryLabels: Record<ScheduleCategory, string>
+  audienceLabels: Record<Audience, string>
+  showDelete?: boolean
+}) {
+  return (
+    <section style={SECTION_STYLE}>
+      <h2 style={{ margin: '0 0 4px', fontSize: 16 }}>{title}</h2>
+      <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-muted)' }}>{subtitle}</p>
+
+      {schedules.length === 0 ? (
+        <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>일정이 없습니다.</p>
+      ) : (
+        <div style={{ display: 'grid', gap: 10 }}>
+          {schedules.map((s) => (
+            <div
+              key={s.id}
+              style={{ border: '1px solid var(--primary-border)', borderRadius: 12, padding: 14, display: 'grid', gap: 10 }}
+            >
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Badge>{categoryLabels[s.category]}</Badge>
+                <Badge muted>{audienceLabels[s.audience]}</Badge>
+              </div>
+
+              <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>{s.title}</div>
+
+              <div style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.7 }}>
+                <div>시작: {formatDateTime(s.start_at)}</div>
+                <div>종료: {formatDateTime(s.end_at)}</div>
+                {s.location && <div>장소: {s.location}</div>}
+                {s.description && <div>설명: {s.description}</div>}
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Link href={`/calendar/${s.id}`} style={outlineButtonStyle}>상세 보기</Link>
+                <Link href={`/admin/calendar/${s.id}/edit`} style={outlineButtonStyle}>수정하기</Link>
+                {showDelete && canDelete && (
+                  <form action={deleteSchedule}>
+                    <input type="hidden" name="schedule_id" value={s.id} />
+                    <button type="submit" style={dangerButtonStyle}>삭제하기</button>
+                  </form>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function Badge({ children, muted }: { children: React.ReactNode; muted?: boolean }) {
+  return (
+    <span style={{
+      fontSize: 12, padding: '3px 10px', borderRadius: 999,
+      background: muted ? '#f3f4f6' : 'var(--primary-soft)',
+      color: muted ? 'var(--text-muted)' : 'var(--primary)',
+    }}>
+      {children}
+    </span>
+  )
+}
+
+const outlineButtonStyle: React.CSSProperties = {
+  textDecoration: 'none', padding: '9px 14px', borderRadius: 9,
+  border: '1.5px solid var(--primary-border)', color: 'var(--text)', fontWeight: 600, fontSize: 14,
+}
+
+const dangerButtonStyle: React.CSSProperties = {
+  padding: '9px 14px', borderRadius: 9, border: '1.5px solid #ef4444',
+  background: '#fff', color: '#ef4444', fontWeight: 700, fontSize: 14, cursor: 'pointer',
 }

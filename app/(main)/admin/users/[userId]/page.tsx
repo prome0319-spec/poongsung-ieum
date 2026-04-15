@@ -6,6 +6,8 @@ import {
   canAccessAdminUsers,
   canChangeUserType,
   canManagePmMembers,
+  isAdmin,
+  isPastor,
   ALL_USER_TYPES,
 } from '@/lib/utils/permissions'
 import type { UserType } from '@/types/user'
@@ -90,6 +92,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
 
   const canEditType = canChangeUserType(myUserType)
   const canEditGroup = canManagePmMembers(myUserType)
+  const canSeeAllNotes = isAdmin(myUserType) || isPastor(myUserType)
 
   const [
     { data: profileData, error: profileError },
@@ -114,14 +117,20 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
     { data: comments },
     { data: chatCountRows },
     { data: recentChatMessages },
-    { data: adminNote },
+    { data: allNotesRaw },
   ] = await Promise.all([
     supabase.from('posts').select('id, title, category, created_at').eq('author_id', userId).order('created_at', { ascending: false }).limit(10),
     supabase.from('comments').select('id, post_id, content, created_at').eq('author_id', userId).order('created_at', { ascending: false }).limit(10),
     supabase.from('chat_messages').select('id, created_at').eq('sender_id', userId).order('created_at', { ascending: false }),
     supabase.from('chat_messages').select('id, room_id, content, created_at').eq('sender_id', userId).order('created_at', { ascending: false }).limit(10),
-    supabase.from('admin_notes').select('content, updated_at').eq('target_user_id', userId).eq('author_id', user.id).maybeSingle(),
+    supabase.from('admin_notes').select('content, updated_at, author_id').eq('target_user_id', userId).order('updated_at', { ascending: false }),
   ])
+
+  type NoteRow = { content: string; updated_at: string | null; author_id: string }
+  const allNotes = (allNotesRaw ?? []) as NoteRow[]
+  const adminNote = allNotes.find((n) => n.author_id === user.id) ?? null
+  // 관리자/목사는 다른 사람이 작성한 메모도 볼 수 있음
+  const otherNotes = canSeeAllNotes ? allNotes.filter((n) => n.author_id !== user.id) : []
 
   const postRows = (posts ?? []) as PostRow[]
   const commentRows = (comments ?? []) as CommentRow[]
@@ -340,7 +349,28 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
       {/* Admin note */}
       <section style={{ background: 'var(--card-bg, #fff)', borderRadius: 'var(--r-lg)', border: '1px solid var(--primary-border)', padding: 20, marginBottom: 16 }}>
         <h2 style={{ margin: '0 0 4px', fontSize: 16, color: 'var(--text)' }}>관리자 메모</h2>
-        <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-muted)' }}>나만 볼 수 있는 메모입니다.</p>
+        <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-muted)' }}>
+          {canSeeAllNotes ? '내 메모와 다른 리더가 작성한 메모를 모두 볼 수 있습니다.' : '나만 볼 수 있는 메모입니다.'}
+        </p>
+
+        {/* 다른 리더 메모 (관리자/목사만) */}
+        {otherNotes.length > 0 && (
+          <div style={{ marginBottom: 16, display: 'grid', gap: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              다른 리더 메모
+            </div>
+            {otherNotes.map((note, i) => (
+              <div key={i} style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--primary-softer)', border: '1px solid var(--primary-border)', fontSize: 13 }}>
+                <p style={{ margin: '0 0 6px', whiteSpace: 'pre-wrap', color: 'var(--text)' }}>{note.content}</p>
+                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>수정: {formatDateTime(note.updated_at)}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
+          내 메모
+        </div>
 
         <form action={upsertAdminNote} style={{ display: 'grid', gap: 10 }}>
           <input type="hidden" name="target_user_id" value={profile.id} />

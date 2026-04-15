@@ -93,15 +93,20 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   const selectedDate = date || getLastSunday()
   const selectedGroup = group || (isAdminOrPastor ? 'all' : (myProfile?.pm_group_id ?? 'all'))
 
+  const isSoldierLeader = myProfile?.user_type === 'soldier_leader'
+
   // 멤버 목록 조회
   let membersQuery = supabase
     .from('profiles')
     .select('id, name, nickname, user_type, pm_group_id')
     .eq('onboarding_completed', true)
-    .neq('user_type', 'admin')
+    .not('user_type', 'in', '("admin","pastor")')
     .order('name')
 
-  if (selectedGroup !== 'all') {
+  if (isSoldierLeader) {
+    // 군지음 팀장: 군지음이만
+    membersQuery = membersQuery.eq('user_type', 'soldier')
+  } else if (selectedGroup !== 'all') {
     membersQuery = membersQuery.eq('pm_group_id', selectedGroup)
   }
 

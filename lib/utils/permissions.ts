@@ -66,7 +66,7 @@ export function canManageSchedule(userType: UserType | null | undefined): boolea
 
 /** 일정 삭제 가능 여부 */
 export function canDeleteSchedule(userType: UserType | null | undefined): boolean {
-  return userType === 'admin'
+  return userType === 'admin' || userType === 'pastor'
 }
 
 /** 공지사항 게시글 작성 가능 여부 */
