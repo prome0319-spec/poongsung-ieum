@@ -95,18 +95,8 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
 
             <div style={{ display: 'grid', gap: 10 }}>
               {[
-                {
-                  value: 'soldier',
-                  emoji: '🎖️',
-                  label: '군지음이',
-                  desc: '현역 군인 청년부 멤버',
-                },
-                {
-                  value: 'general',
-                  emoji: '🙏',
-                  label: '지음이',
-                  desc: '일반 청년부 멤버',
-                },
+                { value: 'false', emoji: '🙏', label: '지음이',   desc: '일반 청년부 멤버' },
+                { value: 'true',  emoji: '🎖️', label: '군지음이', desc: '현역 군인 청년부 멤버' },
               ].map((t) => (
                 <label
                   key={t.value}
@@ -123,7 +113,7 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
                 >
                   <input
                     type="radio"
-                    name="user_type"
+                    name="is_soldier"
                     value={t.value}
                     required
                     style={{ accentColor: 'var(--primary)' }}

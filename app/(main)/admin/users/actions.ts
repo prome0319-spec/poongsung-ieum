@@ -57,16 +57,23 @@ export async function updateUserTypeAndGroup(formData: FormData) {
     updated_at: new Date().toISOString(),
   }
 
-  // 유형 변경은 admin만 가능
-  if (newUserType && canChangeUserType(adminUserType)) {
-    const validTypes = ALL_USER_TYPES.map((t) => t.value)
-    if (!validTypes.includes(newUserType)) {
-      goWithMessage(returnTo, '올바르지 않은 사용자 유형입니다.')
+  // 역할 및 군인 여부 변경은 admin만 가능
+  if (canChangeUserType(adminUserType)) {
+    if (newUserType) {
+      const validTypes = ALL_USER_TYPES.map((t) => t.value)
+      if (!validTypes.includes(newUserType)) {
+        goWithMessage(returnTo, '올바르지 않은 사용자 역할입니다.')
+      }
+      payload.user_type = newUserType
     }
-    payload.user_type = newUserType
 
-    // soldier 아닌 유형으로 변경 시 군 정보 초기화
-    if (newUserType !== 'soldier' && newUserType !== 'soldier_leader') {
+    // 군지음이 여부 변경
+    const isSoldierVal = formData.get('is_soldier')
+    const newIsSoldier = isSoldierVal === 'true'
+    payload.is_soldier = newIsSoldier
+
+    // 군지음이가 아닌 경우 군 정보 초기화
+    if (!newIsSoldier) {
       payload.enlistment_date = null
       payload.discharge_date = null
       payload.military_unit = null

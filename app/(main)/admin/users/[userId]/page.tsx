@@ -23,6 +23,7 @@ type ProfileRow = {
   name: string | null
   nickname: string | null
   user_type: UserType | null
+  is_soldier: boolean
   bio: string | null
   onboarding_completed: boolean | null
   created_at: string | null
@@ -100,7 +101,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, email, name, nickname, user_type, bio, onboarding_completed, created_at, enlistment_date, discharge_date, military_unit, pm_group_id')
+      .select('id, email, name, nickname, user_type, is_soldier, bio, onboarding_completed, created_at, enlistment_date, discharge_date, military_unit, pm_group_id')
       .eq('id', userId)
       .single<ProfileRow>(),
     supabase.from('pm_groups').select('id, name').order('name'),
@@ -153,7 +154,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
   const activityStatus = getActivityStatus(lastActivityAt)
   const { label: activityLabel, bg: activityBg, color: activityColor } = ACTIVITY_META[activityStatus]
 
-  const isSoldierType = profile.user_type === 'soldier' || profile.user_type === 'soldier_leader'
+  const isSoldierType = profile.is_soldier || profile.user_type === 'soldier_leader'
   const currentGroupName = pmGroupRows.find((g) => g.id === profile.pm_group_id)?.name ?? null
 
   const returnTo = `/admin/users/${userId}`
@@ -197,7 +198,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
         <h2 style={{ margin: '0 0 14px', fontSize: 16, color: 'var(--text)' }}>프로필 정보</h2>
         <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
           <InfoItem label="닉네임" value={profile.nickname} />
-          <InfoItem label="사용자 유형" value={getUserTypeLabel(profile.user_type)} />
+          <InfoItem label="사용자 유형" value={getUserTypeLabel(profile.user_type, profile.is_soldier)} />
           <InfoItem label="PM 그룹" value={currentGroupName} />
           <InfoItem label="온보딩" value={profile.onboarding_completed ? '완료' : '미완료'} />
           <InfoItem label="가입일" value={formatDate(profile.created_at)} />
@@ -229,41 +230,86 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
             <input type="hidden" name="return_to" value={returnTo} />
 
             {canEditType && (
-              <div>
-                <label style={{ display: 'block', fontWeight: 600, marginBottom: 8, fontSize: 14 }}>사용자 유형</label>
-                <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
-                  {ALL_USER_TYPES.map((t) => (
-                    <label
-                      key={t.value}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        padding: '10px 12px',
-                        borderRadius: 10,
-                        border: `1.5px solid ${profile.user_type === t.value ? 'var(--primary)' : 'var(--primary-border)'}`,
-                        background: profile.user_type === t.value ? 'var(--primary-soft)' : 'transparent',
-                        cursor: 'pointer',
-                        fontSize: 14,
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name="user_type"
-                        value={t.value}
-                        defaultChecked={profile.user_type === t.value}
-                        style={{ accentColor: 'var(--primary)' }}
-                      />
-                      <span>{t.emoji}</span>
-                      <span>{t.label}</span>
-                    </label>
-                  ))}
+              <>
+                {/* 군지음이 여부 */}
+                <div>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: 8, fontSize: 14 }}>구분</label>
+                  <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr' }}>
+                    {[
+                      { value: 'false', emoji: '🙏', label: '지음이' },
+                      { value: 'true',  emoji: '🎖️', label: '군지음이' },
+                    ].map((t) => (
+                      <label
+                        key={t.value}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          padding: '10px 12px',
+                          borderRadius: 10,
+                          border: `1.5px solid ${String(profile.is_soldier) === t.value ? 'var(--primary)' : 'var(--primary-border)'}`,
+                          background: String(profile.is_soldier) === t.value ? 'var(--primary-soft)' : 'transparent',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="is_soldier"
+                          value={t.value}
+                          defaultChecked={String(profile.is_soldier) === t.value}
+                          style={{ accentColor: 'var(--primary)' }}
+                        />
+                        <span>{t.emoji}</span>
+                        <span>{t.label}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              </div>
+
+                {/* 역할 */}
+                <div>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: 8, fontSize: 14 }}>역할</label>
+                  <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
+                    {ALL_USER_TYPES.map((t) => (
+                      <label
+                        key={t.value}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          padding: '10px 12px',
+                          borderRadius: 10,
+                          border: `1.5px solid ${profile.user_type === t.value ? 'var(--primary)' : 'var(--primary-border)'}`,
+                          background: profile.user_type === t.value ? 'var(--primary-soft)' : 'transparent',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="user_type"
+                          value={t.value}
+                          defaultChecked={profile.user_type === t.value}
+                          style={{ accentColor: 'var(--primary)' }}
+                        />
+                        <span>{t.emoji}</span>
+                        <span>{t.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+                    역할은 지음이/군지음이 구분과 독립적으로 설정됩니다.
+                  </p>
+                </div>
+              </>
             )}
 
             {!canEditType && (
-              <input type="hidden" name="user_type" value={profile.user_type ?? ''} />
+              <>
+                <input type="hidden" name="user_type" value={profile.user_type ?? ''} />
+                <input type="hidden" name="is_soldier" value={String(profile.is_soldier)} />
+              </>
             )}
 
             {canEditGroup && (

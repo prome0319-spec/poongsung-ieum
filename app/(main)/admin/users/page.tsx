@@ -27,6 +27,7 @@ type ProfileRow = {
   name: string | null
   nickname: string | null
   user_type: UserType | null
+  is_soldier: boolean
   onboarding_completed: boolean | null
   created_at: string | null
   military_unit: string | null
@@ -116,7 +117,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
 
   let profilesQuery = supabase
     .from('profiles')
-    .select('id, email, name, nickname, user_type, onboarding_completed, created_at, military_unit, discharge_date, pm_group_id')
+    .select('id, email, name, nickname, user_type, is_soldier, onboarding_completed, created_at, military_unit, discharge_date, pm_group_id')
     .order('created_at', { ascending: false })
 
   // 권한별 범위 제한
@@ -341,7 +342,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
         ) : (
           users.map((member) => {
             const { label: actLabel, bg: actBg, color: actColor } = ACTIVITY_META[member.activityStatus]
-            const isSoldierType = member.user_type === 'soldier' || member.user_type === 'soldier_leader'
+            const isSoldierType = member.is_soldier || member.user_type === 'soldier_leader'
 
             return (
               <article
@@ -359,7 +360,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'start' }}>
                     <span style={{ padding: '4px 10px', borderRadius: 999, background: 'var(--primary-soft)', color: 'var(--primary)', fontSize: 12, fontWeight: 600 }}>
-                      {getUserTypeLabel(member.user_type)}
+                      {getUserTypeLabel(member.user_type, member.is_soldier)}
                     </span>
                     <span style={{ padding: '4px 10px', borderRadius: 999, background: actBg, color: actColor, fontSize: 12, fontWeight: 600 }}>
                       {actLabel}

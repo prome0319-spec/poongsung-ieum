@@ -7,7 +7,7 @@ import {
   sortCalendarEvents,
 } from '@/lib/calendar-events'
 
-type UserType = 'soldier' | 'general' | 'admin'
+type UserType = 'admin' | 'pastor' | 'pm_leader' | 'soldier_leader' | 'general'
 type ScheduleCategory =
   | 'worship'
   | 'meeting'
@@ -40,6 +40,7 @@ type CurrentProfileRow = {
   nickname: string | null
   birth_date: string | null
   user_type: UserType | null
+  is_soldier: boolean
 }
 
 type CalendarEvent = {
@@ -475,15 +476,20 @@ export default async function CalendarPage({
 
   const profileResult = await supabase
     .from('profiles')
-    .select('id, name, nickname, birth_date, user_type')
+    .select('id, name, nickname, birth_date, user_type, is_soldier')
     .eq('id', user.id)
     .eq('onboarding_completed', true)
     .maybeSingle()
 
   const profile = profileResult.data as CurrentProfileRow | null
   const userType = profile?.user_type ?? 'general'
+  const isSoldier = profile?.is_soldier ?? false
   const visibleAudiences: Audience[] =
-    userType === 'admin' ? ['all', 'soldier', 'general'] : ['all', userType]
+    (userType === 'admin' || userType === 'pastor')
+      ? ['all', 'soldier', 'general']
+      : (isSoldier || userType === 'soldier_leader')
+        ? ['all', 'soldier']
+        : ['all', 'general']
 
   const monthStartIso = toMonthBoundaryIso(monthKey)
   const nextMonthKey = getNextMonthKey(monthKey)

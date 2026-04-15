@@ -11,7 +11,8 @@ type ProfileRow = {
   email: string | null
   name: string | null
   nickname: string | null
-  user_type: 'soldier' | 'general' | 'admin' | null
+  user_type: UserType | null
+  is_soldier: boolean
   bio: string | null
   birth_date: string | null
   enlistment_date: string | null
@@ -67,13 +68,13 @@ export default async function MyPage() {
 
   const { data } = await supabase
     .from('profiles')
-    .select('id, email, name, nickname, user_type, bio, birth_date, enlistment_date, discharge_date, military_unit, onboarding_completed')
+    .select('id, email, name, nickname, user_type, is_soldier, bio, birth_date, enlistment_date, discharge_date, military_unit, onboarding_completed')
     .eq('id', user.id)
     .maybeSingle()
 
   const profile = data as ProfileRow | null
   const ut = profile?.user_type as UserType | null
-  const isSoldier = checkSoldier(ut)
+  const isSoldier = profile?.is_soldier ?? false
   const isAdminUser = checkAdmin(ut)
   const isPastorUser = checkPastor(ut)
   const showAttendance = canViewAttendance(ut)
@@ -174,7 +175,7 @@ export default async function MyPage() {
                   fontWeight: 700,
                 }}
               >
-                {getUserTypeLabel(profile?.user_type ?? null)}
+                {getUserTypeLabel(profile?.user_type ?? null, isSoldier)}
               </span>
               {profile?.military_unit && (
                 <span

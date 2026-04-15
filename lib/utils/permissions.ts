@@ -1,38 +1,34 @@
 import type { UserType } from '@/types/user'
 
 // ── 라벨 ──────────────────────────────────────────────────────
-export function getUserTypeLabel(userType: UserType | null | undefined): string {
+/**
+ * 역할 라벨. 'general' 역할은 is_soldier 값에 따라 '지음이' / '군지음이'로 구분.
+ */
+export function getUserTypeLabel(userType: UserType | null | undefined, isSoldier = false): string {
   switch (userType) {
-    case 'admin':           return '관리자'
-    case 'pastor':          return '목사'
-    case 'pm_leader':       return 'PM지기'
-    case 'soldier_leader':  return '군지음 팀장'
-    case 'general':         return '지음이'
-    case 'soldier':         return '군지음이'
-    default:                return '사용자'
+    case 'admin':          return '관리자'
+    case 'pastor':         return '목사'
+    case 'pm_leader':      return 'PM지기'
+    case 'soldier_leader': return '군지음 팀장'
+    case 'general':        return isSoldier ? '군지음이' : '지음이'
+    default:               return isSoldier ? '군지음이' : '사용자'
   }
 }
 
-export function getUserTypeEmoji(userType: UserType | null | undefined): string {
+export function getUserTypeEmoji(userType: UserType | null | undefined, isSoldier = false): string {
   switch (userType) {
-    case 'admin':           return '🛡️'
-    case 'pastor':          return '✝️'
-    case 'pm_leader':       return '👑'
-    case 'soldier_leader':  return '⭐'
-    case 'general':         return '🙏'
-    case 'soldier':         return '🎖️'
-    default:                return '👤'
+    case 'admin':          return '🛡️'
+    case 'pastor':         return '✝️'
+    case 'pm_leader':      return '👑'
+    case 'soldier_leader': return '⭐'
+    case 'general':        return isSoldier ? '🎖️' : '🙏'
+    default:               return isSoldier ? '🎖️' : '👤'
   }
 }
 
-export function getUserTypeBadgeClass(userType: UserType | null | undefined): string {
-  switch (userType) {
-    case 'soldier':
-    case 'soldier_leader':
-      return 'badge-military'
-    default:
-      return ''
-  }
+export function getUserTypeBadgeClass(userType: UserType | null | undefined, isSoldier = false): string {
+  if (isSoldier || userType === 'soldier_leader') return 'badge-military'
+  return ''
 }
 
 // ── 계층 구분 ──────────────────────────────────────────────────
@@ -44,8 +40,13 @@ export function isPastor(userType: UserType | null | undefined): boolean {
   return userType === 'pastor'
 }
 
-export function isSoldier(userType: UserType | null | undefined): boolean {
-  return userType === 'soldier' || userType === 'soldier_leader'
+/**
+ * 군지음이 여부. is_soldier 플래그 기준.
+ * 군지음 팀장(soldier_leader)은 군인 콘텐츠 접근 권한은 있지만
+ * 본인이 군인인지는 is_soldier 필드로 판단.
+ */
+export function isSoldier(isSoldierFlag: boolean | null | undefined): boolean {
+  return isSoldierFlag === true
 }
 
 export function isLeader(userType: UserType | null | undefined): boolean {
@@ -134,35 +135,28 @@ export function canManageChatRooms(userType: UserType | null | undefined): boole
   return userType === 'admin' || userType === 'pastor'
 }
 
-/** 군인용 컨텐츠 접근 여부 */
-export function canAccessSoldierContent(userType: UserType | null | undefined): boolean {
+/** 군인용 콘텐츠 접근 여부 (is_soldier=true이거나 군지음 팀장/관리자/목사) */
+export function canAccessSoldierContent(userType: UserType | null | undefined, isSoldierFlag = false): boolean {
   return (
+    isSoldierFlag === true ||
     userType === 'admin' ||
     userType === 'pastor' ||
-    userType === 'soldier' ||
     userType === 'soldier_leader'
   )
 }
 
 /** 청중(audience) 접근 가능 목록 */
-export function getAllowedAudiences(userType: UserType | null | undefined): string[] {
+export function getAllowedAudiences(userType: UserType | null | undefined, isSoldierFlag = false): string[] {
   if (userType === 'admin' || userType === 'pastor') return ['all', 'soldier', 'general']
-  if (userType === 'soldier' || userType === 'soldier_leader') return ['all', 'soldier']
+  if (isSoldierFlag || userType === 'soldier_leader') return ['all', 'soldier']
   return ['all', 'general']
 }
 
-/** 온보딩에서 선택 가능한 유형 (일반 가입자용) */
-export const ONBOARDING_USER_TYPES: { value: UserType; label: string; desc: string; emoji: string }[] = [
-  { value: 'general',  label: '지음이',    desc: '일반 청년부 멤버',     emoji: '🙏' },
-  { value: 'soldier',  label: '군지음이',  desc: '현역 군인 청년부 멤버', emoji: '🎖️' },
-]
-
-/** 관리자가 변경 가능한 유형 목록 */
+/** 관리자가 변경 가능한 역할 목록 (is_soldier와 독립적인 역할만) */
 export const ALL_USER_TYPES: { value: UserType; label: string; desc: string; emoji: string }[] = [
-  { value: 'admin',           label: '관리자',      desc: '모든 권한',                emoji: '🛡️' },
-  { value: 'pastor',          label: '목사',        desc: '일정/공지/출석 관리',       emoji: '✝️' },
-  { value: 'pm_leader',       label: 'PM지기',      desc: '소그룹 리더',              emoji: '👑' },
-  { value: 'soldier_leader',  label: '군지음 팀장', desc: '군인 그룹 관리',           emoji: '⭐' },
-  { value: 'general',         label: '지음이',      desc: '일반 청년부 멤버',          emoji: '🙏' },
-  { value: 'soldier',         label: '군지음이',    desc: '현역 군인 청년부 멤버',     emoji: '🎖️' },
+  { value: 'admin',          label: '관리자',      desc: '모든 권한',                     emoji: '🛡️' },
+  { value: 'pastor',         label: '목사',        desc: '일정/공지/출석 관리',            emoji: '✝️' },
+  { value: 'pm_leader',      label: 'PM지기',      desc: '소그룹 리더',                   emoji: '👑' },
+  { value: 'soldier_leader', label: '군지음 팀장', desc: '군인 그룹 관리',                emoji: '⭐' },
+  { value: 'general',        label: '일반',        desc: '지음이 / 군지음이 (기본 역할)', emoji: '🙏' },
 ]

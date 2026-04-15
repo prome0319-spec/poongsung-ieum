@@ -109,16 +109,18 @@ export async function saveOnboarding(formData: FormData) {
   const name = getString(formData, 'name')
   const nickname = getString(formData, 'nickname')
   const bio = getString(formData, 'bio')
-  const userType = getString(formData, 'user_type')
+  const isSoldierStr = getString(formData, 'is_soldier')
   const birthDate = getString(formData, 'birth_date') || null
 
-  if (!name || !nickname || !userType) {
-    goWithMessage('/onboarding', '이름, 닉네임, 사용자 유형은 필수입니다.')
+  if (!name || !nickname) {
+    goWithMessage('/onboarding', '이름과 닉네임은 필수입니다.')
   }
 
-  if (userType !== 'soldier' && userType !== 'general') {
-    goWithMessage('/onboarding', '올바른 사용자 유형을 선택하세요. (지음이 또는 군지음이)')
+  if (isSoldierStr !== 'true' && isSoldierStr !== 'false') {
+    goWithMessage('/onboarding', '지음이 또는 군지음이를 선택해 주세요.')
   }
+
+  const isSoldier = isSoldierStr === 'true'
 
   const enlistmentDate = getString(formData, 'enlistment_date') || null
   const dischargeDate = getString(formData, 'discharge_date') || null
@@ -129,12 +131,13 @@ export async function saveOnboarding(formData: FormData) {
     email: user.email ?? null,
     name,
     nickname,
-    user_type: userType,
+    user_type: 'general',   // 역할은 기본값, 관리자가 나중에 변경
+    is_soldier: isSoldier,
     bio: bio || null,
     birth_date: birthDate,
-    enlistment_date: userType === 'soldier' ? enlistmentDate : null,
-    discharge_date: userType === 'soldier' ? dischargeDate : null,
-    military_unit: userType === 'soldier' ? militaryUnit : null,
+    enlistment_date: isSoldier ? enlistmentDate : null,
+    discharge_date: isSoldier ? dischargeDate : null,
+    military_unit: isSoldier ? militaryUnit : null,
     onboarding_completed: true,
   }
 

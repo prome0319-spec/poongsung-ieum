@@ -11,6 +11,7 @@ type Profile = {
   name: string | null
   nickname: string | null
   user_type: UserType | null
+  is_soldier: boolean
   bio: string | null
   military_unit: string | null
   enlistment_date: string | null
@@ -117,18 +118,32 @@ function truncateText(value: string | null, maxLength = 44) {
   return value.length > maxLength ? `${value.slice(0, maxLength)}…` : value
 }
 
-function getDdayInfo(dischargeDate: string | null) {
-  if (!dischargeDate) return { label: '전역일 미입력', days: null }
+function getDdayInfo(dischargeDate: string | null, enlistmentDate: string | null = null) {
+  if (!dischargeDate) return { label: '전역일 미입력', days: null, progress: null }
   const target = new Date(dischargeDate)
-  if (Number.isNaN(target.getTime())) return { label: '전역일 미입력', days: null }
+  if (Number.isNaN(target.getTime())) return { label: '전역일 미입력', days: null, progress: null }
   const today = new Date()
   const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
   const startOfTarget = new Date(target.getFullYear(), target.getMonth(), target.getDate())
   const diffMs = startOfTarget.getTime() - startOfToday.getTime()
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
-  if (diffDays > 0) return { label: `D-${diffDays}`, days: diffDays, sub: '전역까지 남은 날' }
-  if (diffDays === 0) return { label: 'D-Day', days: 0, sub: '오늘이 전역일입니다' }
-  return { label: '전역완료', days: diffDays, sub: '전역일이 지났습니다' }
+
+  let progress: number | null = null
+  if (enlistmentDate) {
+    const enlist = new Date(enlistmentDate)
+    if (!Number.isNaN(enlist.getTime())) {
+      const startOfEnlist = new Date(enlist.getFullYear(), enlist.getMonth(), enlist.getDate())
+      const totalMs = startOfTarget.getTime() - startOfEnlist.getTime()
+      const servedMs = startOfToday.getTime() - startOfEnlist.getTime()
+      if (totalMs > 0) {
+        progress = Math.min(100, Math.max(0, Math.round((servedMs / totalMs) * 100)))
+      }
+    }
+  }
+
+  if (diffDays > 0) return { label: `D-${diffDays}`, days: diffDays, sub: '전역까지 남은 날', progress }
+  if (diffDays === 0) return { label: 'D-Day', days: 0, sub: '오늘이 전역일입니다', progress: 100 }
+  return { label: '전역완료', days: diffDays, sub: '전역일이 지났습니다', progress: 100 }
 }
 
 type QuickLink = {
@@ -168,7 +183,7 @@ export default async function HomePage() {
   const { data: profileData } = await supabase
     .from('profiles')
     .select(
-      'id, name, nickname, user_type, bio, military_unit, enlistment_date, discharge_date, onboarding_completed'
+      'id, name, nickname, user_type, is_soldier, bio, military_unit, enlistment_date, discharge_date, onboarding_completed'
     )
     .eq('id', user.id)
     .single()
@@ -177,7 +192,7 @@ export default async function HomePage() {
 
   if (!profile?.onboarding_completed || !profile.user_type) redirect('/onboarding')
 
-  const audiences = getAllowedAudiences(profile.user_type)
+  const audiences = getAllowedAudiences(profile.user_type, profile.is_soldier)
   const nowIso = new Date().toISOString()
 
   const { data: scheduleData } = await supabase
@@ -246,7 +261,7 @@ export default async function HomePage() {
 
   // 홈 공지 팝업
   const nowIso2 = new Date().toISOString()
-  const userAudience = checkSoldier(profile.user_type) ? 'soldier' : 'general'
+  const userAudience = profile.is_soldier ? 'soldier' : 'general'
   const { data: noticeData } = await supabase
     .from('home_notices')
     .select('*')
@@ -262,8 +277,8 @@ export default async function HomePage() {
 
   const displayName = getDisplayName(profile)
   const quickLinks = getQuickLinks(profile.user_type)
-  const ddayInfo = getDdayInfo(profile.discharge_date)
-  const isSoldier = checkSoldier(profile.user_type)
+  const ddayInfo = getDdayInfo(profile.discharge_date, profile.enlistment_date)
+  const isSoldier = profile.is_soldier
   const showAttendance = canViewAttendance(profile.user_type)
   const avatarSrc = isSoldier ? '/avatar-soldier.svg' : '/avatar-default.svg'
   const heroBanner = isSoldier ? '/hero-military.svg' : '/hero-church.svg'
@@ -336,7 +351,7 @@ export default async function HomePage() {
                 className={`badge ${isSoldier ? 'badge-military' : ''}`}
                 style={{ fontSize: '11px', padding: '3px 8px' }}
               >
-                {getUserTypeLabel(profile.user_type)}
+                {getUserTypeLabel(profile.user_type, profile.is_soldier)}
               </span>
             </div>
             <p className="muted" style={{ margin: 0, fontSize: '13px' }}>
@@ -390,7 +405,7 @@ export default async function HomePage() {
               }}
             />
 
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', position: 'relative' }}>
               <div>
                 <p style={{ margin: '0 0 4px', fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                   DISCHARGE
@@ -423,6 +438,47 @@ export default async function HomePage() {
                 </p>
               </div>
             </div>
+
+            {/* 복무 진행률 바 */}
+            {ddayInfo.progress !== null && (
+              <div style={{ marginTop: '16px', position: 'relative' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <p style={{ margin: 0, fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.06em' }}>
+                    복무 진행률
+                  </p>
+                  <p style={{ margin: 0, fontSize: '13px', fontWeight: 800, color: '#fff' }}>
+                    {ddayInfo.progress}%
+                  </p>
+                </div>
+                <div
+                  style={{
+                    width: '100%',
+                    height: '8px',
+                    borderRadius: '999px',
+                    background: 'rgba(255,255,255,0.2)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      height: '100%',
+                      width: `${ddayInfo.progress}%`,
+                      borderRadius: '999px',
+                      background: 'linear-gradient(90deg, rgba(255,255,255,0.6), rgba(255,255,255,0.95))',
+                      transition: 'width 0.6s ease',
+                    }}
+                  />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                  <p style={{ margin: 0, fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>
+                    {formatShortDate(profile.enlistment_date)}
+                  </p>
+                  <p style={{ margin: 0, fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>
+                    {formatShortDate(profile.discharge_date)}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

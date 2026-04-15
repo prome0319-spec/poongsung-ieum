@@ -3,8 +3,7 @@ export type UserType =
   | 'pastor'          // 목사 — 일정 관리, 공지, 출석 조회/기록
   | 'pm_leader'       // PM지기 — 소그룹 리더, 자기 그룹 출석 관리
   | 'soldier_leader'  // 군지음 팀장 — 군인 그룹 출석 관리
-  | 'general'         // 지음이 — 일반 청년
-  | 'soldier'         // 군지음이 — 군인 청년
+  | 'general'         // 일반 역할 — 지음이 또는 군지음이 (is_soldier로 구분)
 
 export type AppProfile = {
   id: string
@@ -12,6 +11,7 @@ export type AppProfile = {
   name: string
   nickname: string
   user_type: UserType
+  is_soldier: boolean   // 군지음이 여부 (user_type과 독립)
   bio: string | null
   birth_date: string | null
   enlistment_date: string | null
