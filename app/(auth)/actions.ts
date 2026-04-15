@@ -45,9 +45,18 @@ export async function login(formData: FormData) {
 export async function signup(formData: FormData) {
   const email = getString(formData, 'email')
   const password = getString(formData, 'password')
+  const passwordConfirm = getString(formData, 'password_confirm')
 
   if (!email || !password) {
     goWithMessage('/signup', '이메일과 비밀번호를 입력하세요.')
+  }
+
+  if (password.length < 6) {
+    goWithMessage('/signup', '비밀번호는 6자 이상이어야 합니다.')
+  }
+
+  if (password !== passwordConfirm) {
+    goWithMessage('/signup', '비밀번호가 일치하지 않습니다.')
   }
 
   try {

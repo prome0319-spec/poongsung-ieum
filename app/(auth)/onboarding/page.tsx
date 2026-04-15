@@ -35,12 +35,10 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
           시작 설정
         </span>
         <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, lineHeight: 1.3 }}>
-          풍성이음 사용을 위한
-          <br />
           기본 프로필 설정
         </h1>
-        <p style={{ margin: '10px 0 0', fontSize: 14, opacity: 0.9, lineHeight: 1.6 }}>
-          군지음이인지 지음이인지 선택하고, 공동체 안에서 사용할 기본 정보를 저장합니다.
+        <p style={{ margin: '8px 0 0', fontSize: 14, opacity: 0.85, lineHeight: 1.5 }}>
+          공동체 안에서 사용할 기본 정보를 입력합니다.
         </p>
       </section>
 
@@ -67,16 +65,11 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
             </div>
           )}
 
-          {/* Section 1: Basic info */}
+          {/* Section 1: 기본 정보 */}
           <div style={{ display: 'grid', gap: 14 }}>
-            <div>
-              <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>
-                1. 기본 정보
-              </h2>
-              <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
-                공동체 안에서 표시될 기본 정보를 입력합니다.
-              </p>
-            </div>
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--text)' }}>
+              1. 기본 정보
+            </h2>
 
             <Field label="이름" required>
               <input className="input" name="name" type="text" placeholder="이름" required />
@@ -88,22 +81,17 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
               <input className="input" name="birth_date" type="date" />
             </Field>
             <Field label="소개">
-              <textarea className="textarea" name="bio" placeholder="한 줄 소개 또는 자기소개" />
+              <textarea className="textarea" name="bio" placeholder="한 줄 소개 (선택)" />
             </Field>
           </div>
 
           <hr style={{ border: 'none', borderTop: '1px solid var(--primary-border)' }} />
 
-          {/* Section 2: User type */}
+          {/* Section 2: 사용자 유형 */}
           <div style={{ display: 'grid', gap: 14 }}>
-            <div>
-              <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>
-                2. 사용자 유형 선택
-              </h2>
-              <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
-                풍성이음은 군지음이와 지음이 흐름을 각각 고려해 홈과 기능을 구성합니다.
-              </p>
-            </div>
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--text)' }}>
+              2. 사용자 유형 선택
+            </h2>
 
             <div style={{ display: 'grid', gap: 10 }}>
               {[
@@ -111,13 +99,13 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
                   value: 'soldier',
                   emoji: '🎖️',
                   label: '군지음이',
-                  desc: '군 복무 중인 청년을 위한 유형입니다. 일정, 공동체 연결, 군 생활 중 소통 흐름을 중심으로 사용합니다.',
+                  desc: '현역 군인 청년부 멤버',
                 },
                 {
                   value: 'general',
                   emoji: '🙏',
                   label: '지음이',
-                  desc: '일반 청년을 위한 유형입니다. 커뮤니티, 채팅, 예배와 모임 일정 흐름을 중심으로 사용합니다.',
+                  desc: '일반 청년부 멤버',
                 },
               ].map((t) => (
                 <label
@@ -125,7 +113,7 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
                   style={{
                     display: 'flex',
                     gap: 14,
-                    alignItems: 'flex-start',
+                    alignItems: 'center',
                     padding: '14px 16px',
                     borderRadius: 12,
                     border: '1.5px solid var(--primary-border)',
@@ -138,14 +126,14 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
                     name="user_type"
                     value={t.value}
                     required
-                    style={{ marginTop: 3, accentColor: 'var(--primary)' }}
+                    style={{ accentColor: 'var(--primary)' }}
                   />
                   <div style={{ fontSize: 22, flexShrink: 0 }}>{t.emoji}</div>
                   <div>
-                    <strong style={{ color: 'var(--text)', display: 'block', marginBottom: 4 }}>
+                    <strong style={{ color: 'var(--text)', display: 'block', marginBottom: 2 }}>
                       {t.label}
                     </strong>
-                    <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                    <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
                       {t.desc}
                     </p>
                   </div>
@@ -156,14 +144,14 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
 
           <hr style={{ border: 'none', borderTop: '1px solid var(--primary-border)' }} />
 
-          {/* Section 3: Military info */}
+          {/* Section 3: 군 정보 */}
           <div style={{ display: 'grid', gap: 14 }}>
             <div>
-              <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>
+              <h2 style={{ margin: '0 0 2px', fontSize: 17, fontWeight: 800, color: 'var(--text)' }}>
                 3. 군 정보
               </h2>
               <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
-                군지음이를 선택한 경우 입력하세요. 지음이를 선택하면 아래 값은 저장되지 않습니다.
+                군지음이를 선택한 경우에만 입력하세요.
               </p>
             </div>
 
@@ -178,52 +166,11 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
             </Field>
           </div>
 
-          {/* Note */}
-          <div
-            style={{
-              padding: 14,
-              borderRadius: 12,
-              border: '1px solid var(--primary-border)',
-              background: 'var(--primary-soft)',
-              color: 'var(--primary-dark)',
-              fontSize: 14,
-              lineHeight: 1.65,
-            }}
-          >
-            온보딩 저장 후 홈으로 이동합니다. 이후에도 <strong>마이페이지</strong>에서 프로필 정보를 수정할 수 있습니다.
-          </div>
-
           <button className="button" type="submit">
             저장하고 시작하기
           </button>
         </form>
       </section>
-
-      {/* Info cards */}
-      <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
-        {[
-          { title: '군지음이', desc: '군 생활 중에도 공동체와 연결될 수 있도록 일정, 공지, 채팅 흐름을 더 빠르게 확인할 수 있도록 구성됩니다.' },
-          { title: '지음이',  desc: '예배, 모임, 커뮤니티, 채팅을 중심으로 공동체 안에서 자연스럽게 소통할 수 있도록 구성됩니다.' },
-          { title: '나중에도 수정 가능', desc: '지금 입력한 내용은 고정되지 않으며, 마이페이지에서 프로필과 군 정보를 다시 수정할 수 있습니다.' },
-        ].map(({ title, desc }) => (
-          <div
-            key={title}
-            style={{
-              padding: 16,
-              borderRadius: 12,
-              border: '1px solid var(--primary-border)',
-              background: '#fff',
-            }}
-          >
-            <strong style={{ display: 'block', marginBottom: 6, fontSize: 15, color: 'var(--text)' }}>
-              {title}
-            </strong>
-            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-              {desc}
-            </p>
-          </div>
-        ))}
-      </div>
     </main>
   )
 }
