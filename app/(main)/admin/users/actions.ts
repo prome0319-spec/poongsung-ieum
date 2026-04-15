@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { canAccessAdminUsers, canChangeUserType, canManagePmMembers, ALL_USER_TYPES } from '@/lib/utils/permissions'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { UserType } from '@/types/user'
 
 function toText(value: FormDataEntryValue | null) {
@@ -72,12 +73,15 @@ export async function updateUserTypeAndGroup(formData: FormData) {
     }
   }
 
-  const { error } = await supabase
+  // RLS를 우회해야 다른 사용자의 user_type을 변경할 수 있음
+  const adminClient = createAdminClient()
+  const { error, count } = await adminClient
     .from('profiles')
     .update(payload)
     .eq('id', targetUserId)
 
   if (error) goWithMessage(returnTo, `변경 실패: ${error.message}`)
+  if (count === 0) goWithMessage(returnTo, '변경 실패: 대상 사용자를 찾을 수 없습니다.')
 
   revalidatePath('/admin/users')
   revalidatePath(`/admin/users/${targetUserId}`)
