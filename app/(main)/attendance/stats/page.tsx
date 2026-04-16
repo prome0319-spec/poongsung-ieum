@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { loadUserContext } from '@/lib/utils/user-context'
-import { isAdminOrPastor } from '@/lib/utils/permissions'
+import { isAdminOrPastor, canViewAttendance } from '@/lib/utils/permissions'
 
 type PageProps = {
   searchParams: Promise<{ months?: string }>
@@ -46,7 +46,10 @@ export default async function AttendanceStatsPage({ searchParams }: PageProps) {
   if (!user) redirect('/login')
 
   const ctx = await loadUserContext(user.id)
-  if (!isAdminOrPastor(ctx.profile.system_role)) redirect('/attendance')
+  if (!canViewAttendance(ctx)) redirect('/attendance')
+
+  const isPmLeaderOnly = !isAdminOrPastor(ctx.profile.system_role)
+  const myPmGroupIds = ctx.pmGroupIds
 
   const { months: monthsParam } = await searchParams
   const months = Math.min(12, Math.max(1, parseInt(monthsParam ?? '3', 10) || 3))
@@ -58,20 +61,25 @@ export default async function AttendanceStatsPage({ searchParams }: PageProps) {
 
   const oldestDate = sundays[sundays.length - 1]
 
-  // PM 그룹 목록
-  const { data: pmGroupsData } = await supabase
-    .from('pm_groups')
-    .select('id, name')
-    .order('name')
+  // PM 그룹 목록 (PM지기면 본인 그룹만)
+  let pmGroupsQuery = supabase.from('pm_groups').select('id, name').order('name')
+  if (isPmLeaderOnly && myPmGroupIds.length > 0) {
+    pmGroupsQuery = pmGroupsQuery.in('id', myPmGroupIds)
+  }
+  const { data: pmGroupsData } = await pmGroupsQuery
   const pmGroups = (pmGroupsData ?? []) as PmGroupRow[]
 
-  // 멤버 목록 (관리자/목사 제외)
-  const { data: membersData } = await supabase
+  // 멤버 목록 (PM지기면 본인 그룹 멤버만)
+  let membersQuery = supabase
     .from('profiles')
     .select('id, name, nickname, pm_group_id, is_soldier')
     .eq('onboarding_completed', true)
     .not('system_role', 'in', '("admin","pastor")')
     .order('name')
+  if (isPmLeaderOnly && myPmGroupIds.length > 0) {
+    membersQuery = membersQuery.in('pm_group_id', myPmGroupIds)
+  }
+  const { data: membersData } = await membersQuery
   const members = (membersData ?? []) as ProfileRow[]
   const memberIds = members.map((m) => m.id)
 
@@ -147,8 +155,13 @@ export default async function AttendanceStatsPage({ searchParams }: PageProps) {
   return (
     <main className="page">
       <div style={{ marginBottom: '20px' }}>
-        <h1 className="page-title">출석 통계</h1>
-        <p className="page-subtitle">주일 예배 출석률을 분석합니다.</p>
+        <Link href="/attendance" style={{ fontSize: 14, color: 'var(--primary)', fontWeight: 600 }}>← 출석체크</Link>
+        <h1 className="page-title" style={{ marginTop: 8 }}>출석 통계</h1>
+        <p className="page-subtitle">
+          {isPmLeaderOnly
+            ? `내 소그룹(${pmGroups.map((g) => g.name).join(', ')}) 출석률`
+            : '주일 예배 출석률을 분석합니다.'}
+        </p>
       </div>
 
       {/* 기간 선택 */}
@@ -292,11 +305,6 @@ export default async function AttendanceStatsPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      <div style={{ textAlign: 'center' }}>
-        <Link href="/attendance" style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: 600 }}>
-          ← 출석체크로 돌아가기
-        </Link>
-      </div>
     </main>
   )
 }

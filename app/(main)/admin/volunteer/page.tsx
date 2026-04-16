@@ -201,6 +201,12 @@ export default async function AdminVolunteerPage({ searchParams }: PageProps) {
 
                 {/* 관리 버튼 */}
                 <div style={{ display: 'flex', gap: '6px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+                  <Link
+                    href={`/admin/volunteer/${duty.id}`}
+                    style={{ flex: 2, padding: '7px', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--primary)', background: 'var(--primary-soft)', color: 'var(--primary)', fontSize: '12px', fontWeight: 700, textDecoration: 'none', textAlign: 'center' }}
+                  >
+                    신청자 목록
+                  </Link>
                   <form action={toggleVolunteerDutyActive} style={{ flex: 1 }}>
                     <input type="hidden" name="id" value={duty.id} />
                     <input type="hidden" name="is_active" value={String(duty.is_active)} />

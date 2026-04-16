@@ -114,6 +114,19 @@ export async function deleteVolunteerDuty(formData: FormData) {
   goWithMessage('/admin/volunteer', '봉사 일정이 삭제되었습니다.')
 }
 
+export async function adminCancelSignup(formData: FormData) {
+  const { adminClient } = await requireAdmin()
+  const signupId = toText(formData.get('signup_id'))
+  const dutyId   = toText(formData.get('duty_id'))
+  if (!signupId) goWithMessage(`/admin/volunteer/${dutyId}`, 'ID가 없습니다.')
+  const { error } = await adminClient.from('volunteer_signups').delete().eq('id', signupId)
+  if (error) goWithMessage(`/admin/volunteer/${dutyId}`, `취소 실패: ${error.message}`)
+  revalidatePath(`/admin/volunteer/${dutyId}`)
+  revalidatePath('/admin/volunteer')
+  revalidatePath('/volunteer')
+  goWithMessage(`/admin/volunteer/${dutyId}`, '신청이 취소되었습니다.')
+}
+
 export async function toggleVolunteerDutyActive(formData: FormData) {
   const { adminClient } = await requireAdmin()
   const id       = toText(formData.get('id'))
