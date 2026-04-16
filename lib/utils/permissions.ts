@@ -10,7 +10,7 @@ import type { SystemRole, UserType, UserContext, ExecutiveTitle } from '@/types/
  * - system_role 단독일 경우 is_soldier 로 지음이/군지음이 구분
  */
 export function getUserTypeLabel(
-  userTypeOrSystemRole: UserType | SystemRole | null | undefined,
+  userTypeOrSystemRole: UserType | SystemRole | string | null | undefined,
   isSoldier = false
 ): string {
   switch (userTypeOrSystemRole) {
@@ -25,7 +25,7 @@ export function getUserTypeLabel(
 }
 
 export function getUserTypeEmoji(
-  userTypeOrSystemRole: UserType | SystemRole | null | undefined,
+  userTypeOrSystemRole: UserType | SystemRole | string | null | undefined,
   isSoldier = false
 ): string {
   switch (userTypeOrSystemRole) {
@@ -40,7 +40,7 @@ export function getUserTypeEmoji(
 }
 
 export function getUserTypeBadgeClass(
-  userTypeOrSystemRole: UserType | SystemRole | null | undefined,
+  userTypeOrSystemRole: UserType | SystemRole | string | null | undefined,
   isSoldier = false
 ): string {
   if (isSoldier || userTypeOrSystemRole === 'soldier_leader') return 'badge-military'
@@ -183,19 +183,25 @@ export function getAllowedAudiences(
 // 5. 상수 (관리자 폼에서 사용)
 // ══════════════════════════════════════════════════════════════
 
-/** 관리자가 설정 가능한 user_type 목록 (레거시, Phase 4 제거 예정) */
-export const ALL_USER_TYPES: {
-  value: UserType
+/** 관리자가 설정 가능한 system_role 목록 */
+export const ALL_SYSTEM_ROLES: {
+  value: SystemRole
   label: string
   desc: string
   emoji: string
 }[] = [
-  { value: 'admin',          label: '관리자',      desc: '모든 시스템 권한',              emoji: '🛡️' },
-  { value: 'pastor',         label: '목사',        desc: '일정/공지/출석 관리',            emoji: '✝️' },
-  { value: 'pm_leader',      label: 'PM지기',      desc: '소그룹 리더',                   emoji: '👑' },
-  { value: 'soldier_leader', label: '군지음 팀장', desc: '군인 그룹 관리',                emoji: '⭐' },
-  { value: 'general',        label: '일반',        desc: '지음이 / 군지음이 기본 역할',   emoji: '🙏' },
+  { value: 'admin',  label: '관리자', desc: '모든 시스템 권한',       emoji: '🛡️' },
+  { value: 'pastor', label: '목사',   desc: '일정/공지/출석 관리',     emoji: '✝️' },
+  { value: 'member', label: '멤버',   desc: '지음이 / 군지음이 기본',  emoji: '🙏' },
 ]
+
+/** @deprecated user_type 컬럼 제거됨. ALL_SYSTEM_ROLES 사용 권장 */
+export const ALL_USER_TYPES = ALL_SYSTEM_ROLES as unknown as {
+  value: UserType
+  label: string
+  desc: string
+  emoji: string
+}[]
 
 export function isSoldier(isSoldierFlag: boolean | null | undefined): boolean {
   return isSoldierFlag === true

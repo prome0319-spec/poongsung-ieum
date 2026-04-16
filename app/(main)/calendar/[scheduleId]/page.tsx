@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { deleteSchedule } from '@/app/(main)/calendar/actions'
 
 type ScheduleCategory = 'worship' | 'meeting' | 'event' | 'service' | 'general'
 type Audience = 'all' | 'soldier' | 'general'
@@ -196,19 +197,38 @@ export default async function CalendarDetailPage({
             </Link>
 
             {isAdminOrPastorUser && (
-              <Link
-                href={`/admin/calendar/${schedule.id}/edit`}
-                style={{
-                  textDecoration: 'none',
-                  padding: '10px 14px',
-                  borderRadius: 10,
-                  background: '#111827',
-                  color: '#fff',
-                  fontWeight: 700,
-                }}
-              >
-                일정 수정
-              </Link>
+              <>
+                <Link
+                  href={`/admin/calendar/${schedule.id}/edit`}
+                  style={{
+                    textDecoration: 'none',
+                    padding: '10px 14px',
+                    borderRadius: 10,
+                    background: '#111827',
+                    color: '#fff',
+                    fontWeight: 700,
+                  }}
+                >
+                  일정 수정
+                </Link>
+                <form action={deleteSchedule}>
+                  <input type="hidden" name="schedule_id" value={schedule.id} />
+                  <button
+                    type="submit"
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: 10,
+                      border: '1.5px solid #ef4444',
+                      background: '#fff',
+                      color: '#ef4444',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    일정 삭제
+                  </button>
+                </form>
+              </>
             )}
           </div>
         </div>

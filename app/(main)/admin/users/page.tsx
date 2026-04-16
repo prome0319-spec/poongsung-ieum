@@ -7,10 +7,10 @@ import {
   isPastor,
   isAdminOrPastor,
   getUserTypeLabel,
-  ALL_USER_TYPES,
+  ALL_SYSTEM_ROLES,
 } from '@/lib/utils/permissions'
 import { loadUserContext } from '@/lib/utils/user-context'
-import type { SystemRole, UserType } from '@/types/user'
+import type { SystemRole } from '@/types/user'
 
 type ActivityFilter = 'all' | 'active' | 'stale' | 'inactive'
 type SortType = 'recent_activity' | 'inactive_first' | 'recent_signup' | 'name'
@@ -29,7 +29,6 @@ type ProfileRow = {
   name: string | null
   nickname: string | null
   system_role: SystemRole | null
-  user_type: UserType | null
   is_soldier: boolean
   onboarding_completed: boolean | null
   created_at: string | null
@@ -107,14 +106,14 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
   const isPmLeaderUser = myPmGroupIds.length > 0
 
   const q = safeText(params.q)
-  const filterUserType = safeText(params.userType) as UserType | ''
+  const filterSystemRole = safeText(params.userType) as SystemRole | ''
   const onboarding = safeText(params.onboarding)
   const activity = (safeText(params.activity) || 'all') as ActivityFilter
   const sort = (safeText(params.sort) || 'recent_activity') as SortType
 
   let profilesQuery = supabase
     .from('profiles')
-    .select('id, email, name, nickname, system_role, user_type, is_soldier, onboarding_completed, created_at, military_unit, discharge_date, pm_group_id')
+    .select('id, email, name, nickname, system_role, is_soldier, onboarding_completed, created_at, military_unit, discharge_date, pm_group_id')
     .order('created_at', { ascending: false })
 
   // 권한별 범위 제한
@@ -135,9 +134,9 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
     profilesQuery = profilesQuery.or(`name.ilike.%${kw}%,nickname.ilike.%${kw}%,email.ilike.%${kw}%`)
   }
 
-  const validTypes = ALL_USER_TYPES.map((t) => t.value) as string[]
-  if (filterUserType && validTypes.includes(filterUserType)) {
-    profilesQuery = profilesQuery.eq('user_type', filterUserType)
+  const validRoles = ALL_SYSTEM_ROLES.map((t) => t.value) as string[]
+  if (filterSystemRole && validRoles.includes(filterSystemRole)) {
+    profilesQuery = profilesQuery.eq('system_role', filterSystemRole)
   }
 
   if (onboarding === 'done')  profilesQuery = profilesQuery.eq('onboarding_completed', true)
@@ -270,10 +269,10 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
           <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
             {isAdminPastor && (
               <div>
-                <label style={LABEL_STYLE}>사용자 유형</label>
-                <select name="userType" defaultValue={filterUserType} style={SELECT_STYLE}>
+                <label style={LABEL_STYLE}>시스템 역할</label>
+                <select name="userType" defaultValue={filterSystemRole} style={SELECT_STYLE}>
                   <option value="">전체</option>
-                  {ALL_USER_TYPES.map((t) => (
+                  {ALL_SYSTEM_ROLES.map((t) => (
                     <option key={t.value} value={t.value}>{t.emoji} {t.label}</option>
                   ))}
                 </select>
@@ -336,7 +335,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
         ) : (
           users.map((member) => {
             const { label: actLabel, bg: actBg, color: actColor } = ACTIVITY_META[member.activityStatus]
-            const isSoldierType = member.is_soldier || member.user_type === 'soldier_leader'
+            const isSoldierType = member.is_soldier
 
             return (
               <article
@@ -354,7 +353,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'start' }}>
                     <span style={{ padding: '4px 10px', borderRadius: 999, background: 'var(--primary-soft)', color: 'var(--primary)', fontSize: 12, fontWeight: 600 }}>
-                      {getUserTypeLabel(member.user_type, member.is_soldier)}
+                      {getUserTypeLabel(member.system_role, member.is_soldier)}
                     </span>
                     <span style={{ padding: '4px 10px', borderRadius: 999, background: actBg, color: actColor, fontSize: 12, fontWeight: 600 }}>
                       {actLabel}

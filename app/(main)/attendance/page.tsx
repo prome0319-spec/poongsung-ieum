@@ -9,7 +9,7 @@ import {
   getUserTypeLabel,
 } from '@/lib/utils/permissions'
 import { upsertAttendance } from './actions'
-import type { AttendanceStatus, AttendanceRecord, UserType } from '@/types/user'
+import type { AttendanceStatus, AttendanceRecord } from '@/types/user'
 
 type PageProps = {
   searchParams: Promise<{ date?: string; group?: string; message?: string }>
@@ -19,7 +19,6 @@ type Member = {
   id: string
   name: string | null
   nickname: string | null
-  user_type: string | null
   system_role: string | null
   is_soldier: boolean
   pm_group_id: string | null
@@ -95,7 +94,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   // 멤버 목록 조회
   let membersQuery = supabase
     .from('profiles')
-    .select('id, name, nickname, user_type, system_role, is_soldier, pm_group_id')
+    .select('id, name, nickname, system_role, is_soldier, pm_group_id')
     .eq('onboarding_completed', true)
     .not('system_role', 'in', '("admin","pastor")')
     .order('name')
@@ -254,13 +253,13 @@ export default async function AttendancePage({ searchParams }: PageProps) {
                   <div
                     className="avatar avatar-sm"
                     style={{
-                      background: member.is_soldier || member.user_type === 'soldier_leader'
+                      background: member.is_soldier
                         ? 'var(--military-soft)' : 'var(--primary-soft)',
                       border: '1.5px solid var(--border)',
                       fontSize: '14px',
                     }}
                   >
-                    {member.is_soldier || member.user_type === 'soldier_leader' ? '🎖️' : '🙏'}
+                    {member.is_soldier ? '🎖️' : '🙏'}
                   </div>
 
                   {/* 이름 + 유형 */}
@@ -269,7 +268,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
                       {getDisplayName(member)}
                     </p>
                     <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                      {getUserTypeLabel(member.user_type as UserType | null, member.is_soldier)}
+                      {getUserTypeLabel(member.system_role as string | null, member.is_soldier)}
                     </p>
                   </div>
 

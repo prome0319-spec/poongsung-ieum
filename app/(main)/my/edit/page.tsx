@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { updateMyProfile } from '../actions'
+import DatePicker from '@/components/common/DatePicker'
 
 type PageProps = {
   searchParams: Promise<{ message?: string }>
@@ -12,7 +13,7 @@ type ProfileRow = {
   email: string
   name: string
   nickname: string | null
-  user_type: string | null
+  system_role: string | null
   is_soldier: boolean
   bio: string | null
   birth_date: string | null
@@ -31,16 +32,14 @@ export default async function MyEditPage({ searchParams }: PageProps) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, email, name, nickname, user_type, is_soldier, bio, birth_date, enlistment_date, discharge_date, military_unit, onboarding_completed')
+    .select('id, email, name, nickname, system_role, is_soldier, bio, birth_date, enlistment_date, discharge_date, military_unit, onboarding_completed')
     .eq('id', user.id)
     .single()
 
   if (!profile) redirect('/onboarding')
 
-  const LOCKED_TYPES = ['admin', 'pastor', 'pm_leader', 'soldier_leader']
-  const isLocked = LOCKED_TYPES.includes(profile.user_type ?? '')
+  const isLocked = profile.system_role === 'admin' || profile.system_role === 'pastor'
   const isSoldier = profile.is_soldier
-  const editableUserType = profile.is_soldier ? 'soldier' : 'general'
 
   return (
     <main className="page">
@@ -221,11 +220,8 @@ export default async function MyEditPage({ searchParams }: PageProps) {
               >
                 생일
               </label>
-              <input
-                id="birth_date"
+              <DatePicker
                 name="birth_date"
-                type="date"
-                className="input"
                 defaultValue={profile.birth_date ?? ''}
               />
             </div>
@@ -303,18 +299,18 @@ export default async function MyEditPage({ searchParams }: PageProps) {
                   <span style={{ fontSize: '22px' }}>🛡️</span>
                   <div>
                     <p style={{ margin: 0, fontWeight: 700, color: 'var(--primary-strong)' }}>
-                      {profile.user_type === 'pastor' ? '목사' : profile.user_type === 'pm_leader' ? 'PM지기' : profile.user_type === 'soldier_leader' ? '군지음 팀장' : '관리자'}
+                      {profile.system_role === 'pastor' ? '목사' : '관리자'}
                     </p>
                     <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>이 유형은 직접 변경할 수 없습니다.</p>
                   </div>
                 </div>
-                <input type="hidden" name="user_type" value={profile.user_type ?? 'general'} />
+                <input type="hidden" name="is_soldier" value={String(isSoldier)} />
               </div>
             ) : (
               <div className="stack" style={{ gap: '10px' }}>
                 {[
-                  { value: 'general', emoji: '✝️', label: '지음이', desc: '일반 청년부 멤버' },
-                  { value: 'soldier', emoji: '🎖️', label: '군지음이', desc: '현역 군인 청년부 멤버' },
+                  { value: 'false', emoji: '✝️', label: '지음이', desc: '일반 청년부 멤버', isSoldierOpt: false },
+                  { value: 'true',  emoji: '🎖️', label: '군지음이', desc: '현역 군인 청년부 멤버', isSoldierOpt: true },
                 ].map((opt) => (
                   <label
                     key={opt.value}
@@ -323,18 +319,18 @@ export default async function MyEditPage({ searchParams }: PageProps) {
                       alignItems: 'center',
                       gap: '12px',
                       padding: '14px 16px',
-                      border: `1.5px solid ${editableUserType === opt.value ? (opt.value === 'soldier' ? 'var(--military)' : 'var(--primary)') : 'var(--border)'}`,
+                      border: `1.5px solid ${isSoldier === opt.isSoldierOpt ? (opt.isSoldierOpt ? 'var(--military)' : 'var(--primary)') : 'var(--border)'}`,
                       borderRadius: 'var(--radius-sm)',
-                      background: editableUserType === opt.value ? (opt.value === 'soldier' ? 'var(--military-soft)' : 'var(--primary-soft)') : 'white',
+                      background: isSoldier === opt.isSoldierOpt ? (opt.isSoldierOpt ? 'var(--military-soft)' : 'var(--primary-soft)') : 'white',
                       cursor: 'pointer',
                     }}
                   >
                     <input
                       type="radio"
-                      name="user_type"
+                      name="is_soldier"
                       value={opt.value}
-                      defaultChecked={editableUserType === opt.value}
-                      style={{ accentColor: opt.value === 'soldier' ? 'var(--military)' : 'var(--primary)', width: '18px', height: '18px' }}
+                      defaultChecked={isSoldier === opt.isSoldierOpt}
+                      style={{ accentColor: opt.isSoldierOpt ? 'var(--military)' : 'var(--primary)', width: '18px', height: '18px' }}
                     />
                     <span style={{ fontSize: '22px' }}>{opt.emoji}</span>
                     <div>
@@ -432,14 +428,10 @@ export default async function MyEditPage({ searchParams }: PageProps) {
                 >
                   입대일
                 </label>
-                <input
-                  id="enlistment_date"
-                  type="date"
+                <DatePicker
                   name="enlistment_date"
-                  className="input"
                   defaultValue={profile.enlistment_date ?? ''}
                   disabled={!isSoldier}
-                  style={!isSoldier ? { background: '#f8fafc', color: 'var(--text-soft)', cursor: 'not-allowed' } : {}}
                 />
               </div>
               <div>
@@ -455,14 +447,10 @@ export default async function MyEditPage({ searchParams }: PageProps) {
                 >
                   전역예정일
                 </label>
-                <input
-                  id="discharge_date"
-                  type="date"
+                <DatePicker
                   name="discharge_date"
-                  className="input"
                   defaultValue={profile.discharge_date ?? ''}
                   disabled={!isSoldier}
-                  style={!isSoldier ? { background: '#f8fafc', color: 'var(--text-soft)', cursor: 'not-allowed' } : {}}
                 />
               </div>
             </div>

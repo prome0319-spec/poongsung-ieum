@@ -4,14 +4,13 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import HomeNoticePopup from '@/components/home/HomeNoticePopup'
 import { getUserTypeLabel, getUserTypeEmoji, getAllowedAudiences, isAdminOrPastor } from '@/lib/utils/permissions'
-import type { SystemRole, UserType, HomeNotice } from '@/types/user'
+import type { SystemRole, HomeNotice } from '@/types/user'
 
 type Profile = {
   id: string
   name: string | null
   nickname: string | null
   system_role: SystemRole
-  user_type: UserType | null
   is_soldier: boolean
   pm_group_id: string | null
   bio: string | null
@@ -185,14 +184,14 @@ export default async function HomePage() {
   const { data: profileData } = await supabase
     .from('profiles')
     .select(
-      'id, name, nickname, system_role, user_type, is_soldier, bio, military_unit, enlistment_date, discharge_date, pm_group_id, onboarding_completed'
+      'id, name, nickname, system_role, is_soldier, bio, military_unit, enlistment_date, discharge_date, pm_group_id, onboarding_completed'
     )
     .eq('id', user.id)
     .single()
 
   const profile = profileData as Profile | null
 
-  if (!profile?.onboarding_completed || !profile.user_type) redirect('/onboarding')
+  if (!profile?.onboarding_completed) redirect('/onboarding')
 
   const audiences = getAllowedAudiences(profile.system_role, profile.is_soldier)
   const nowIso = new Date().toISOString()
@@ -212,7 +211,7 @@ export default async function HomePage() {
     .order('created_at', { ascending: false })
     .limit(3)
 
-  if (profile.user_type === 'general') {
+  if (!profile.is_soldier && !isAdminOrPastor(profile.system_role)) {
     postsQuery = postsQuery.neq('category', 'soldier')
   }
 
@@ -283,9 +282,7 @@ export default async function HomePage() {
   const isSoldier = profile.is_soldier
   const showAttendance =
     isAdminOrPastor(profile.system_role) ||
-    !!profile.pm_group_id ||
-    profile.user_type === 'pm_leader' ||
-    profile.user_type === 'soldier_leader'
+    !!profile.pm_group_id
   const avatarSrc = isSoldier ? '/avatar-soldier.svg' : '/avatar-default.svg'
   const heroBanner = isSoldier ? '/hero-military.svg' : '/hero-church.svg'
 
@@ -357,7 +354,7 @@ export default async function HomePage() {
                 className={`badge ${isSoldier ? 'badge-military' : ''}`}
                 style={{ fontSize: '11px', padding: '3px 8px' }}
               >
-                {getUserTypeLabel(profile.user_type, profile.is_soldier)}
+                {getUserTypeLabel(profile.system_role, profile.is_soldier)}
               </span>
             </div>
             <p className="muted" style={{ margin: 0, fontSize: '13px' }}>

@@ -1,10 +1,8 @@
 // ── 시스템 역할 (접근 제어용) ────────────────────────────────
 export type SystemRole = 'admin' | 'pastor' | 'member'
 
-// ── 레거시 조직 역할 (user_type, Phase 4에서 제거 예정) ──────
-// - admin/pastor → system_role 로 이전 완료
-// - pm_leader/soldier_leader → org 테이블로 이전 진행 중
-// - general → 기본 member
+// ── 레거시 조직 역할 (user_type 컬럼 제거됨, 코드 호환용) ──────
+// DB 컬럼은 migration 008에서 제거됨. 타입은 코드 호환용으로 유지.
 export type UserType =
   | 'admin'
   | 'pastor'
@@ -30,7 +28,6 @@ export type AppProfile = {
   name: string | null
   nickname: string | null
   system_role: SystemRole
-  user_type: UserType | null  // 레거시, Phase 4에서 제거
   is_soldier: boolean
   phone: string | null
   bio: string | null

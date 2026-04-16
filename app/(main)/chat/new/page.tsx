@@ -21,11 +21,11 @@ function getDisplayName(profile: {
   return (profile.nickname || profile.name || '이름없음').trim()
 }
 
-function getUserTypeLabel(userType: string | null) {
-  if (userType === 'soldier') return '군지음이'
-  if (userType === 'general') return '지음이'
-  if (userType === 'admin') return '관리자'
-  return '사용자'
+function getUserTypeLabel(systemRole: string | null, isSoldier: boolean | null) {
+  if (systemRole === 'admin') return '관리자'
+  if (systemRole === 'pastor') return '목사'
+  if (isSoldier) return '군지음이'
+  return '지음이'
 }
 
 export default async function NewDirectChatPage({ searchParams }: PageProps) {
@@ -44,17 +44,17 @@ export default async function NewDirectChatPage({ searchParams }: PageProps) {
 
   const { data: me } = await supabase
     .from('profiles')
-    .select('id, user_type')
+    .select('id, onboarding_completed')
     .eq('id', user.id)
     .single()
 
-  if (!me?.user_type) {
+  if (!me?.onboarding_completed) {
     redirect('/onboarding')
   }
 
   const { data: users } = await supabase
     .from('profiles')
-    .select('id, name, nickname, user_type, onboarding_completed')
+    .select('id, name, nickname, system_role, is_soldier, onboarding_completed')
     .neq('id', user.id)
     .eq('onboarding_completed', true)
     .order('name', { ascending: true })
@@ -83,7 +83,7 @@ export default async function NewDirectChatPage({ searchParams }: PageProps) {
             <article key={target.id} className="card">
               <div className="stack">
                 <strong>{getDisplayName(target)}</strong>
-                <p>{getUserTypeLabel(target.user_type)}</p>
+                <p>{getUserTypeLabel(target.system_role ?? null, target.is_soldier ?? null)}</p>
 
                 <form action={createOrOpenDirectRoom}>
                   <input type="hidden" name="targetUserId" value={target.id} />

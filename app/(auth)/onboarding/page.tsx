@@ -1,4 +1,5 @@
 import { saveOnboarding } from '../actions'
+import DatePicker from '@/components/common/DatePicker'
 
 type PageProps = {
   searchParams?: Promise<{ message?: string }>
@@ -78,7 +79,7 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
               <input className="input" name="nickname" type="text" placeholder="닉네임" required />
             </Field>
             <Field label="생일">
-              <input className="input" name="birth_date" type="date" />
+              <DatePicker name="birth_date" placeholder="생일을 선택하세요" />
             </Field>
             <Field label="소개">
               <textarea className="textarea" name="bio" placeholder="한 줄 소개 (선택)" />
@@ -146,10 +147,10 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
             </div>
 
             <Field label="입대일">
-              <input className="input" name="enlistment_date" type="date" />
+              <DatePicker name="enlistment_date" placeholder="입대일을 선택하세요" />
             </Field>
             <Field label="전역예정일">
-              <input className="input" name="discharge_date" type="date" />
+              <DatePicker name="discharge_date" placeholder="전역예정일을 선택하세요" />
             </Field>
             <Field label="소속 부대">
               <input className="input" name="military_unit" type="text" placeholder="예: 육군 ○○사단" />

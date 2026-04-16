@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import MarkRoomRead from '../MarkRoomRead'
 
-type UserType = 'soldier' | 'general' | 'admin'
 type Audience = 'all' | 'soldier' | 'general'
 type RoomType = 'group' | 'announcement'
 
@@ -20,7 +20,8 @@ type ProfileRow = {
   id: string
   name: string | null
   nickname: string | null
-  user_type: UserType | null
+  system_role: string | null
+  is_soldier: boolean | null
 }
 
 type ChatRoomRow = {
@@ -38,7 +39,7 @@ type ChatMessageRow = {
   room_id: string
   sender_id: string
   sender_name: string | null
-  sender_user_type: UserType | null
+  sender_user_type: string | null
   content: string
   created_at: string | null
 }
@@ -63,11 +64,11 @@ function getRoomTypeLabel(roomType: RoomType | null, isAnnouncement: boolean | n
   return '일반형'
 }
 
-function canAccessRoom(userType: UserType | null, audience: Audience) {
-  if (userType === 'admin') return true
+function canAccessRoom(systemRole: string | null, isSoldier: boolean | null, audience: Audience) {
+  if (systemRole === 'admin' || systemRole === 'pastor') return true
   if (audience === 'all') return true
-  if (audience === 'soldier') return userType === 'soldier'
-  if (audience === 'general') return userType === 'general'
+  if (audience === 'soldier') return !!isSoldier
+  if (audience === 'general') return !isSoldier
   return false
 }
 
@@ -89,7 +90,7 @@ export default async function ChatRoomDetailPage({
 
   const { data: myProfile } = await supabase
     .from('profiles')
-    .select('id, name, nickname, user_type')
+    .select('id, name, nickname, system_role, is_soldier')
     .eq('id', user.id)
     .single<ProfileRow>()
 
@@ -107,7 +108,7 @@ export default async function ChatRoomDetailPage({
     notFound()
   }
 
-  if (!canAccessRoom(myProfile.user_type, room.audience)) {
+  if (!canAccessRoom(myProfile.system_role, myProfile.is_soldier, room.audience)) {
     redirect('/chat')
   }
 
@@ -119,7 +120,7 @@ export default async function ChatRoomDetailPage({
 
   const messageRows = (messages ?? []) as ChatMessageRow[]
 
-  const isAdmin = myProfile.user_type === 'admin'
+  const isAdmin = myProfile.system_role === 'admin' || myProfile.system_role === 'pastor'
   const isAnnouncementRoom =
     room.room_type === 'announcement' || room.is_announcement === true
   const canWriteMessage = isAdmin || !isAnnouncementRoom
@@ -150,7 +151,7 @@ export default async function ChatRoomDetailPage({
 
     const { data: senderProfile } = await supabase
       .from('profiles')
-      .select('id, name, nickname, user_type')
+      .select('id, name, nickname, system_role, is_soldier')
       .eq('id', user.id)
       .single<ProfileRow>()
 
@@ -168,14 +169,14 @@ export default async function ChatRoomDetailPage({
       redirect('/chat')
     }
 
-    if (!canAccessRoom(senderProfile.user_type, targetRoom.audience)) {
+    if (!canAccessRoom(senderProfile.system_role, senderProfile.is_soldier, targetRoom.audience)) {
       redirect('/chat')
     }
 
     const targetIsAnnouncement =
       targetRoom.room_type === 'announcement' || targetRoom.is_announcement === true
 
-    if (targetIsAnnouncement && senderProfile.user_type !== 'admin') {
+    if (targetIsAnnouncement && senderProfile.system_role !== 'admin' && senderProfile.system_role !== 'pastor') {
       redirect(
         `/chat/${targetRoomId}?error=${encodeURIComponent(
           '공지형 채팅방은 관리자만 작성할 수 있습니다.'
@@ -188,12 +189,8 @@ export default async function ChatRoomDetailPage({
       senderProfile.nickname?.trim() ||
       '이름없음'
 
-    const senderUserType: UserType =
-      senderProfile.user_type === 'soldier' ||
-      senderProfile.user_type === 'general' ||
-      senderProfile.user_type === 'admin'
-        ? senderProfile.user_type
-        : 'general'
+    const senderUserType =
+      senderProfile.system_role === 'admin' ? 'admin' : senderProfile.is_soldier ? 'soldier' : 'general'
 
     const { error } = await supabase.from('chat_messages').insert({
       room_id: targetRoomId,
@@ -217,6 +214,7 @@ export default async function ChatRoomDetailPage({
 
   return (
     <main style={{ padding: 24, display: 'grid', gap: 20 }}>
+      <MarkRoomRead roomId={roomId} />
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <div style={{ marginBottom: 8 }}>

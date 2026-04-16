@@ -33,7 +33,7 @@ export async function updateMyProfile(formData: FormData) {
   const nickname = getText(formData.get('nickname'))
   const bio = getText(formData.get('bio'))
   const birthDate = getNullableDate(formData.get('birth_date'))
-  const rawUserType = getText(formData.get('user_type'))
+  const rawIsSoldier = formData.get('is_soldier') === 'true'
   const enlistmentDate = getNullableDate(formData.get('enlistment_date'))
   const dischargeDate = getNullableDate(formData.get('discharge_date'))
   const militaryUnit = getText(formData.get('military_unit'))
@@ -46,9 +46,10 @@ export async function updateMyProfile(formData: FormData) {
     goWithMessage('/my/edit', '닉네임을 입력해 주세요.')
   }
 
+  // admin/pastor는 역할 변경 불가, pm_group_leaders 확인
   const { data: currentProfile, error: profileError } = await supabase
     .from('profiles')
-    .select('id, user_type')
+    .select('id, system_role, is_soldier')
     .eq('id', user.id)
     .single()
 
@@ -56,16 +57,22 @@ export async function updateMyProfile(formData: FormData) {
     goWithMessage('/onboarding', '프로필 정보를 먼저 완료해 주세요.')
   }
 
-  // admin, pastor, pm_leader, soldier_leader 는 본인이 직접 변경 불가
-  const LOCKED_TYPES = ['admin', 'pastor', 'pm_leader', 'soldier_leader']
-  const nextUserType = LOCKED_TYPES.includes(currentProfile.user_type)
-    ? currentProfile.user_type
-    : rawUserType === 'soldier'
-    ? 'soldier'
-    : 'general'
+  const isLocked = currentProfile.system_role === 'admin' || currentProfile.system_role === 'pastor'
+
+  // pm_group_leaders 여부 확인 (pm지기는 군지음이 토글 불가)
+  const { data: pmLeaderRow } = await supabase
+    .from('pm_group_leaders')
+    .select('user_id')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const isPmLeader = !!pmLeaderRow
+
+  // 잠긴 역할이면 is_soldier 변경 불가
+  const isSoldierType = isLocked || isPmLeader ? !!currentProfile.is_soldier : rawIsSoldier
 
   if (
-    nextUserType === 'soldier' &&
+    isSoldierType &&
     enlistmentDate &&
     dischargeDate &&
     enlistmentDate > dischargeDate
@@ -73,13 +80,11 @@ export async function updateMyProfile(formData: FormData) {
     goWithMessage('/my/edit', '전역일은 입대일보다 빠를 수 없습니다.')
   }
 
-  const isSoldierType = nextUserType === 'soldier' || nextUserType === 'soldier_leader'
   const payload = {
     name,
     nickname,
     bio: bio || null,
     birth_date: birthDate,
-    user_type: nextUserType,
     is_soldier: isSoldierType,
     enlistment_date: isSoldierType ? enlistmentDate : null,
     discharge_date: isSoldierType ? dischargeDate : null,

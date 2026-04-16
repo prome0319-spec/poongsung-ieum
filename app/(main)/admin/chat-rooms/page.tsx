@@ -70,11 +70,11 @@ export default async function AdminChatRoomsPage({
 
   const { data: myProfile } = await supabase
     .from('profiles')
-    .select('user_type')
+    .select('system_role')
     .eq('id', user.id)
     .single()
 
-  if (myProfile?.user_type !== 'admin') {
+  if (myProfile?.system_role !== 'admin' && myProfile?.system_role !== 'pastor') {
     redirect('/home')
   }
 

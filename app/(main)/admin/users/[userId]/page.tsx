@@ -8,10 +8,10 @@ import {
   isAdmin,
   isPastor,
   isAdminOrPastor,
-  ALL_USER_TYPES,
+  ALL_SYSTEM_ROLES,
 } from '@/lib/utils/permissions'
 import { loadUserContext } from '@/lib/utils/user-context'
-import type { SystemRole, UserType } from '@/types/user'
+import type { SystemRole } from '@/types/user'
 import { updateUserTypeAndGroup, upsertAdminNote, deleteAdminNote } from '../actions'
 
 type PageProps = {
@@ -24,7 +24,6 @@ type ProfileRow = {
   name: string | null
   nickname: string | null
   system_role: SystemRole | null
-  user_type: UserType | null
   is_soldier: boolean
   bio: string | null
   onboarding_completed: boolean | null
@@ -96,7 +95,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, email, name, nickname, system_role, user_type, is_soldier, bio, onboarding_completed, created_at, enlistment_date, discharge_date, military_unit, pm_group_id')
+      .select('id, email, name, nickname, system_role, is_soldier, bio, onboarding_completed, created_at, enlistment_date, discharge_date, military_unit, pm_group_id')
       .eq('id', userId)
       .single<ProfileRow>(),
     supabase.from('pm_groups').select('id, name').order('name'),
@@ -149,7 +148,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
   const activityStatus = getActivityStatus(lastActivityAt)
   const { label: activityLabel, bg: activityBg, color: activityColor } = ACTIVITY_META[activityStatus]
 
-  const isSoldierType = profile.is_soldier || profile.user_type === 'soldier_leader'
+  const isSoldierType = profile.is_soldier
   const currentGroupName = pmGroupRows.find((g) => g.id === profile.pm_group_id)?.name ?? null
 
   const returnTo = `/admin/users/${userId}`
@@ -193,7 +192,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
         <h2 style={{ margin: '0 0 14px', fontSize: 16, color: 'var(--text)' }}>프로필 정보</h2>
         <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
           <InfoItem label="닉네임" value={profile.nickname} />
-          <InfoItem label="사용자 유형" value={getUserTypeLabel(profile.user_type, profile.is_soldier)} />
+          <InfoItem label="시스템 역할" value={getUserTypeLabel(profile.system_role, profile.is_soldier)} />
           <InfoItem label="PM 그룹" value={currentGroupName} />
           <InfoItem label="온보딩" value={profile.onboarding_completed ? '완료' : '미완료'} />
           <InfoItem label="가입일" value={formatDate(profile.created_at)} />
@@ -266,7 +265,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
                 <div>
                   <label style={{ display: 'block', fontWeight: 600, marginBottom: 8, fontSize: 14 }}>역할</label>
                   <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
-                    {ALL_USER_TYPES.map((t) => (
+                    {ALL_SYSTEM_ROLES.map((t) => (
                       <label
                         key={t.value}
                         style={{
@@ -275,17 +274,17 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
                           gap: 8,
                           padding: '10px 12px',
                           borderRadius: 10,
-                          border: `1.5px solid ${profile.user_type === t.value ? 'var(--primary)' : 'var(--primary-border)'}`,
-                          background: profile.user_type === t.value ? 'var(--primary-soft)' : 'transparent',
+                          border: `1.5px solid ${profile.system_role === t.value ? 'var(--primary)' : 'var(--primary-border)'}`,
+                          background: profile.system_role === t.value ? 'var(--primary-soft)' : 'transparent',
                           cursor: 'pointer',
                           fontSize: 14,
                         }}
                       >
                         <input
                           type="radio"
-                          name="user_type"
+                          name="system_role"
                           value={t.value}
-                          defaultChecked={profile.user_type === t.value}
+                          defaultChecked={profile.system_role === t.value}
                           style={{ accentColor: 'var(--primary)' }}
                         />
                         <span>{t.emoji}</span>
@@ -302,7 +301,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
 
             {!canEditType && (
               <>
-                <input type="hidden" name="user_type" value={profile.user_type ?? ''} />
+                <input type="hidden" name="system_role" value={profile.system_role ?? 'member'} />
                 <input type="hidden" name="is_soldier" value={String(profile.is_soldier)} />
               </>
             )}

@@ -40,7 +40,6 @@ type CurrentProfileRow = {
   nickname: string | null
   birth_date: string | null
   system_role: SystemRole | null
-  user_type: string | null   // 레거시, 폴백용
   is_soldier: boolean
 }
 
@@ -470,7 +469,7 @@ export default async function CalendarPage({
 
   const profileResult = await supabase
     .from('profiles')
-    .select('id, name, nickname, birth_date, system_role, user_type, is_soldier')
+    .select('id, name, nickname, birth_date, system_role, is_soldier')
     .eq('id', user.id)
     .eq('onboarding_completed', true)
     .maybeSingle()
@@ -478,11 +477,10 @@ export default async function CalendarPage({
   const profile = profileResult.data as CurrentProfileRow | null
   const systemRole = profile?.system_role ?? null
   const isSoldier = profile?.is_soldier ?? false
-  const isSoldierLeader = profile?.user_type === 'soldier_leader'
   const visibleAudiences: Audience[] =
     (systemRole === 'admin' || systemRole === 'pastor')
       ? ['all', 'soldier', 'general']
-      : (isSoldier || isSoldierLeader)
+      : isSoldier
         ? ['all', 'soldier']
         : ['all', 'general']
 

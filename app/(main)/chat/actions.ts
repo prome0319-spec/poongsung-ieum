@@ -34,11 +34,11 @@ async function requireUser() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, name, nickname, user_type, system_role, is_soldier')
+    .select('id, name, nickname, system_role, is_soldier, onboarding_completed')
     .eq('id', user.id)
     .single()
 
-  if (!profile?.user_type) {
+  if (!profile?.onboarding_completed) {
     redirect('/onboarding')
   }
 
@@ -67,7 +67,8 @@ export async function sendChatMessage(formData: FormData) {
 
   const systemRole = profile.system_role as string | null
   const isSoldier = !!profile.is_soldier
-  const userType = profile.user_type
+  // chat_messages.sender_user_type 컬럼용 표시 값 (display only)
+  const userType = systemRole === 'admin' ? 'admin' : isSoldier ? 'soldier' : 'general'
   const roomType = room.room_type as ChatRoomType
 
   if (roomType === 'group') {
@@ -100,6 +101,18 @@ export async function sendChatMessage(formData: FormData) {
   revalidatePath(`/chat/${roomId}`)
 }
 
+export async function markRoomAsRead(roomId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  await supabase.from('chat_room_reads').upsert(
+    { user_id: user.id, room_id: roomId, last_read_at: new Date().toISOString() },
+    { onConflict: 'user_id,room_id' }
+  )
+  revalidatePath('/chat')
+}
+
 export async function createOrOpenDirectRoom(formData: FormData) {
   const targetUserId = String(formData.get('targetUserId') ?? '')
 
@@ -115,7 +128,7 @@ export async function createOrOpenDirectRoom(formData: FormData) {
 
   const { data: targetProfile, error: targetProfileError } = await supabase
     .from('profiles')
-    .select('id, name, nickname, user_type')
+    .select('id, name, nickname')
     .eq('id', targetUserId)
     .maybeSingle()
 

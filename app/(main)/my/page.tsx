@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '../../../lib/supabase/server'
 import { logout } from '../../(auth)/actions'
 import { getUserTypeLabel, canManageHomeNotice, isAdmin as checkAdmin, isPastor as checkPastor, isAdminOrPastor } from '@/lib/utils/permissions'
-import type { SystemRole, UserType } from '@/types/user'
+import type { SystemRole } from '@/types/user'
 
 type ProfileRow = {
   id: string
@@ -12,7 +12,6 @@ type ProfileRow = {
   name: string | null
   nickname: string | null
   system_role: SystemRole
-  user_type: UserType | null
   is_soldier: boolean
   pm_group_id: string | null
   bio: string | null
@@ -70,7 +69,7 @@ export default async function MyPage() {
 
   const { data } = await supabase
     .from('profiles')
-    .select('id, email, name, nickname, system_role, user_type, is_soldier, pm_group_id, bio, birth_date, enlistment_date, discharge_date, military_unit, onboarding_completed')
+    .select('id, email, name, nickname, system_role, is_soldier, pm_group_id, bio, birth_date, enlistment_date, discharge_date, military_unit, onboarding_completed')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -81,9 +80,7 @@ export default async function MyPage() {
   const isPastorUser = checkPastor(sysRole)
   const showAttendance =
     isAdminOrPastor(sysRole) ||
-    !!profile?.pm_group_id ||
-    profile?.user_type === 'pm_leader' ||
-    profile?.user_type === 'soldier_leader'
+    !!profile?.pm_group_id
   const showNoticeAdmin = canManageHomeNotice(sysRole)
   const displayName = getDisplayName(profile ?? { name: null, nickname: null })
   const ddayInfo = isSoldier ? getDdayInfo(profile?.discharge_date ?? null) : null
@@ -190,7 +187,7 @@ export default async function MyPage() {
                   fontWeight: 700,
                 }}
               >
-                {getUserTypeLabel(profile?.user_type ?? null, isSoldier)}
+                {getUserTypeLabel(profile?.system_role ?? null, isSoldier)}
               </span>
               {profile?.military_unit && (
                 <span

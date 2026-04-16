@@ -1,33 +1,37 @@
 -- ============================================================
--- 008: user_type 컬럼 제거
+-- 010: user_type 참조 정책 전면 정리 + 스키마 캐시 갱신
 -- ============================================================
--- 의존 정책을 모두 system_role 기반으로 재작성한 후 컬럼을 제거합니다.
+-- migration_v2.sql 등 이전에 생성된 user_type 기반 정책을
+-- 모두 찾아 제거한 뒤 system_role 기반으로 재생성합니다.
+-- 마지막에 PostgREST 스키마 캐시를 강제 갱신합니다.
 
 -- ─────────────────────────────────────────────────────────────
--- Step 1: is_soldier / system_role 정합성 보정
+-- Step 1: user_type 을 참조하는 정책 전부 동적 제거
 -- ─────────────────────────────────────────────────────────────
-UPDATE profiles
-SET is_soldier = true
-WHERE (user_type = 'soldier' OR user_type = 'soldier_leader')
-  AND is_soldier = false;
-
-UPDATE profiles
-SET is_soldier = false
-WHERE user_type IN ('admin', 'pastor', 'pm_leader', 'general')
-  AND is_soldier = true;
-
-UPDATE profiles SET system_role = 'admin'
-  WHERE user_type = 'admin' AND (system_role IS NULL OR system_role != 'admin');
-
-UPDATE profiles SET system_role = 'pastor'
-  WHERE user_type = 'pastor' AND (system_role IS NULL OR system_role != 'pastor');
-
-UPDATE profiles SET system_role = 'member'
-  WHERE user_type IN ('pm_leader','soldier_leader','general','soldier')
-    AND system_role IS NULL;
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT policyname, tablename, schemaname
+    FROM pg_policies
+    WHERE schemaname IN ('public', 'storage')
+      AND (
+        qual       ILIKE '%user_type%'
+        OR with_check ILIKE '%user_type%'
+      )
+  LOOP
+    EXECUTE format(
+      'DROP POLICY IF EXISTS %I ON %I.%I',
+      r.policyname, r.schemaname, r.tablename
+    );
+    RAISE NOTICE 'Dropped: % on %.%', r.policyname, r.schemaname, r.tablename;
+  END LOOP;
+END;
+$$;
 
 -- ─────────────────────────────────────────────────────────────
--- Step 2: 의존 정책 DROP
+-- Step 2: 이름으로 명시된 정책도 확실히 제거 (중복 safe)
 -- ─────────────────────────────────────────────────────────────
 
 -- posts
@@ -53,19 +57,25 @@ DROP POLICY IF EXISTS "attendance_update_leader" ON attendance_records;
 DROP POLICY IF EXISTS "attendance_delete_admin"  ON attendance_records;
 
 -- home_notices
-DROP POLICY IF EXISTS "home_notices_admin_all"              ON home_notices;
-DROP POLICY IF EXISTS "admin_pastor can read all notices"   ON home_notices;
-DROP POLICY IF EXISTS "admin_pastor can manage notices"     ON home_notices;
+DROP POLICY IF EXISTS "home_notices_admin_all"           ON home_notices;
+DROP POLICY IF EXISTS "admin_pastor can read all notices" ON home_notices;
+DROP POLICY IF EXISTS "admin_pastor can manage notices"  ON home_notices;
+DROP POLICY IF EXISTS "home_notices_read_active"         ON home_notices;
 
--- storage.objects (공지 이미지)
+-- storage.objects
 DROP POLICY IF EXISTS "notice_images_upload_admin" ON storage.objects;
 DROP POLICY IF EXISTS "notice_images_delete_admin" ON storage.objects;
 
 -- ─────────────────────────────────────────────────────────────
--- Step 3: 정책 재생성 (system_role 기반)
+-- Step 3: user_type 컬럼 제거 (존재하는 경우)
+-- ─────────────────────────────────────────────────────────────
+ALTER TABLE profiles DROP COLUMN IF EXISTS user_type;
+
+-- ─────────────────────────────────────────────────────────────
+-- Step 4: system_role 기반 정책 재생성
 -- ─────────────────────────────────────────────────────────────
 
--- posts: 본인 또는 admin/pastor 수정/삭제
+-- posts
 CREATE POLICY "community_posts_update_own_or_admin" ON posts
   FOR UPDATE TO authenticated
   USING (
@@ -86,7 +96,7 @@ CREATE POLICY "community_posts_delete_own_or_admin" ON posts
     )
   );
 
--- comments: 본인 또는 admin/pastor 삭제
+-- comments
 CREATE POLICY "community_comments_delete_own_or_admin" ON comments
   FOR DELETE TO authenticated
   USING (
@@ -97,7 +107,7 @@ CREATE POLICY "community_comments_delete_own_or_admin" ON comments
     )
   );
 
--- schedules: admin/pastor만 생성·삭제
+-- schedules
 CREATE POLICY "schedules_insert_admin" ON schedules
   FOR INSERT TO authenticated
   WITH CHECK (
@@ -116,7 +126,7 @@ CREATE POLICY "schedules_delete_admin" ON schedules
     )
   );
 
--- pm_groups: admin/pastor만 CUD
+-- pm_groups
 CREATE POLICY "pm_groups_insert_admin" ON pm_groups
   FOR INSERT TO authenticated
   WITH CHECK (
@@ -144,7 +154,7 @@ CREATE POLICY "pm_groups_delete_admin" ON pm_groups
     )
   );
 
--- attendance_records: 본인 + 리더(pm_group_leaders) + admin/pastor 읽기
+-- attendance_records
 CREATE POLICY "attendance_read_auth" ON attendance_records
   FOR SELECT TO authenticated
   USING (
@@ -159,7 +169,6 @@ CREATE POLICY "attendance_read_auth" ON attendance_records
     )
   );
 
--- 출석 기록 삽입: admin/pastor 또는 pm_group_leaders
 CREATE POLICY "attendance_insert_leader" ON attendance_records
   FOR INSERT TO authenticated
   WITH CHECK (
@@ -173,7 +182,6 @@ CREATE POLICY "attendance_insert_leader" ON attendance_records
     )
   );
 
--- 출석 기록 수정: admin/pastor 또는 pm_group_leaders
 CREATE POLICY "attendance_update_leader" ON attendance_records
   FOR UPDATE TO authenticated
   USING (
@@ -187,7 +195,6 @@ CREATE POLICY "attendance_update_leader" ON attendance_records
     )
   );
 
--- 출석 기록 삭제: admin/pastor만
 CREATE POLICY "attendance_delete_admin" ON attendance_records
   FOR DELETE TO authenticated
   USING (
@@ -197,7 +204,7 @@ CREATE POLICY "attendance_delete_admin" ON attendance_records
     )
   );
 
--- home_notices: admin/pastor 전체 관리 + 전체 읽기
+-- home_notices: 전체 관리 (admin/pastor)
 CREATE POLICY "home_notices_admin_all" ON home_notices
   FOR ALL TO authenticated
   USING (
@@ -213,7 +220,8 @@ CREATE POLICY "home_notices_admin_all" ON home_notices
     )
   );
 
-CREATE POLICY "admin_pastor can read all notices" ON home_notices
+-- home_notices: 활성화된 공지 읽기 (전체)
+CREATE POLICY "home_notices_read_active" ON home_notices
   FOR SELECT TO authenticated
   USING (
     is_active = true
@@ -223,22 +231,7 @@ CREATE POLICY "admin_pastor can read all notices" ON home_notices
     )
   );
 
-CREATE POLICY "admin_pastor can manage notices" ON home_notices
-  FOR ALL TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND system_role IN ('admin','pastor')
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND system_role IN ('admin','pastor')
-    )
-  );
-
--- storage.objects 공지 이미지: admin/pastor만 업로드/삭제
+-- storage.objects: 공지 이미지
 CREATE POLICY "notice_images_upload_admin" ON storage.objects
   FOR INSERT TO authenticated
   WITH CHECK (
@@ -260,6 +253,6 @@ CREATE POLICY "notice_images_delete_admin" ON storage.objects
   );
 
 -- ─────────────────────────────────────────────────────────────
--- Step 4: user_type 컬럼 제거
+-- Step 5: PostgREST 스키마 캐시 강제 갱신
 -- ─────────────────────────────────────────────────────────────
-ALTER TABLE profiles DROP COLUMN IF EXISTS user_type;
+NOTIFY pgrst, 'reload schema';

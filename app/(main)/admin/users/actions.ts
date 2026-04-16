@@ -3,10 +3,9 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { canAccessAdminUsers, canChangeUserType, ALL_USER_TYPES } from '@/lib/utils/permissions'
+import { canAccessAdminUsers, canChangeUserType } from '@/lib/utils/permissions'
 import { loadUserContext } from '@/lib/utils/user-context'
 import { createAdminClient } from '@/lib/supabase/admin'
-import type { UserType } from '@/types/user'
 
 function toText(value: FormDataEntryValue | null) {
   return String(value ?? '').trim()
@@ -33,7 +32,7 @@ export async function updateUserTypeAndGroup(formData: FormData) {
   const { supabase, adminCtx } = await requireAdmin()
 
   const targetUserId = toText(formData.get('target_user_id'))
-  const newUserType = toText(formData.get('user_type')) as UserType | ''
+  const newSystemRole = toText(formData.get('system_role')) as 'admin' | 'pastor' | 'member' | ''
   const newPmGroupId = toText(formData.get('pm_group_id')) || null
   const returnTo = toText(formData.get('return_to')) || '/admin/users'
 
@@ -46,16 +45,12 @@ export async function updateUserTypeAndGroup(formData: FormData) {
 
   // 역할 및 군인 여부 변경은 admin만 가능
   if (canChangeUserType(adminCtx)) {
-    if (newUserType) {
-      const validTypes = ALL_USER_TYPES.map((t) => t.value)
-      if (!validTypes.includes(newUserType)) {
+    if (newSystemRole) {
+      const validRoles = ['admin', 'pastor', 'member']
+      if (!validRoles.includes(newSystemRole)) {
         goWithMessage(returnTo, '올바르지 않은 사용자 역할입니다.')
       }
-      payload.user_type = newUserType
-      // system_role 도 함께 업데이트
-      if (newUserType === 'admin') payload.system_role = 'admin'
-      else if (newUserType === 'pastor') payload.system_role = 'pastor'
-      else payload.system_role = 'member'
+      payload.system_role = newSystemRole
     }
 
     // 군지음이 여부 변경
@@ -71,7 +66,6 @@ export async function updateUserTypeAndGroup(formData: FormData) {
     }
   }
 
-  // RLS를 우회해야 다른 사용자의 user_type을 변경할 수 있음
   const adminClient = createAdminClient()
   const { error, count } = await adminClient
     .from('profiles')

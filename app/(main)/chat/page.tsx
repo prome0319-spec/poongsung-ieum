@@ -35,11 +35,11 @@ function getDisplayName(profile: { name: string | null; nickname: string | null 
   return (profile?.nickname || profile?.name || '이름없음').trim()
 }
 
-function getUserTypeLabel(userType: string | null | undefined) {
-  if (userType === 'soldier') return '군지음이'
-  if (userType === 'general') return '지음이'
-  if (userType === 'admin') return '관리자'
-  return '사용자'
+function getPartnerLabel(systemRole: string | null | undefined, isSoldier: boolean | null | undefined) {
+  if (systemRole === 'admin') return '관리자'
+  if (systemRole === 'pastor') return '목사'
+  if (isSoldier) return '군지음이'
+  return '지음이'
 }
 
 function getRoomEmoji(room: ChatRoom) {
@@ -125,13 +125,14 @@ export default async function ChatPage({ searchParams }: PageProps) {
       id: string
       name: string | null
       nickname: string | null
-      user_type: string | null
+      system_role: string | null
+      is_soldier: boolean | null
     }> = []
 
     if (partnerIds.length > 0) {
       const { data } = await supabase
         .from('profiles')
-        .select('id, name, nickname, user_type')
+        .select('id, name, nickname, system_role, is_soldier')
         .in('id', partnerIds)
       partnerProfiles = data ?? []
     }
@@ -144,11 +145,56 @@ export default async function ChatPage({ searchParams }: PageProps) {
       )
       const partnerProfile = partnerMember ? partnerProfileMap.get(partnerMember.user_id) : null
       partnerNameByRoomId.set(room.id, getDisplayName(partnerProfile))
-      partnerTypeByRoomId.set(room.id, getUserTypeLabel(partnerProfile?.user_type))
+      partnerTypeByRoomId.set(room.id, getPartnerLabel(partnerProfile?.system_role, partnerProfile?.is_soldier))
     }
   }
 
   const typedGroupRooms = (groupRooms ?? []) as ChatRoom[]
+
+  // 미읽음 수 계산
+  const allRoomIds = [
+    ...typedGroupRooms.map((r) => r.id),
+    ...directRooms.map((r) => r.id),
+  ]
+
+  const unreadMap = new Map<string, number>()
+  if (allRoomIds.length > 0) {
+    // 내 마지막 읽음 기록
+    const { data: reads } = await supabase
+      .from('chat_room_reads')
+      .select('room_id, last_read_at')
+      .eq('user_id', user.id)
+      .in('room_id', allRoomIds)
+
+    const lastReadMap = new Map<string, string>()
+    for (const r of (reads ?? [])) {
+      lastReadMap.set(r.room_id, r.last_read_at)
+    }
+
+    // 각 방의 마지막 메시지 시각 조회
+    const { data: latestMsgs } = await supabase
+      .from('chat_messages')
+      .select('room_id, created_at')
+      .in('room_id', allRoomIds)
+      .neq('sender_id', user.id)
+      .order('created_at', { ascending: false })
+
+    // room_id 별 최신 메시지 시각
+    const latestMsgMap = new Map<string, string>()
+    for (const m of (latestMsgs ?? [])) {
+      if (!latestMsgMap.has(m.room_id)) {
+        latestMsgMap.set(m.room_id, m.created_at)
+      }
+    }
+
+    for (const roomId of allRoomIds) {
+      const lastMsg = latestMsgMap.get(roomId)
+      const lastRead = lastReadMap.get(roomId)
+      if (lastMsg && (!lastRead || lastMsg > lastRead)) {
+        unreadMap.set(roomId, 1)
+      }
+    }
+  }
 
   return (
     <main className="page-hero">
@@ -298,10 +344,10 @@ export default async function ChatPage({ searchParams }: PageProps) {
 
               <div
                 style={{
-                  width: '8px',
-                  height: '8px',
+                  width: '10px',
+                  height: '10px',
                   borderRadius: '50%',
-                  background: 'var(--border)',
+                  background: unreadMap.has(room.id) ? 'var(--danger)' : 'var(--border)',
                   flexShrink: 0,
                 }}
               />
@@ -376,10 +422,10 @@ export default async function ChatPage({ searchParams }: PageProps) {
 
                 <div
                   style={{
-                    width: '8px',
-                    height: '8px',
+                    width: '10px',
+                    height: '10px',
                     borderRadius: '50%',
-                    background: 'var(--border)',
+                    background: unreadMap.has(room.id) ? 'var(--danger)' : 'var(--border)',
                     flexShrink: 0,
                   }}
                 />

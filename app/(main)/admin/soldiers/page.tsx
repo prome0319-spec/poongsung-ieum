@@ -9,7 +9,6 @@ type SoldierProfile = {
   name: string | null
   nickname: string | null
   system_role: SystemRole | null
-  user_type: string | null
   military_unit: string | null
   enlistment_date: string | null
   discharge_date: string | null
@@ -70,7 +69,7 @@ export default async function AdminSoldiersPage() {
 
   const { data: soldiers } = await supabase
     .from('profiles')
-    .select('id, name, nickname, system_role, user_type, military_unit, enlistment_date, discharge_date, phone')
+    .select('id, name, nickname, system_role, military_unit, enlistment_date, discharge_date, phone')
     .eq('is_soldier', true)
     .eq('onboarding_completed', true)
     .order('discharge_date', { ascending: true, nullsFirst: false })
@@ -161,11 +160,6 @@ export default async function AdminSoldiersPage() {
                         <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
                           {getDisplayName(soldier)}
                         </span>
-                        {soldier.user_type === 'soldier_leader' && (
-                          <span style={{ fontSize: 10, background: 'var(--primary-soft)', color: 'var(--primary)', padding: '1px 6px', borderRadius: 'var(--r-pill)', fontWeight: 700 }}>
-                            팀장
-                          </span>
-                        )}
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                         {soldier.military_unit || '소속 미입력'}
