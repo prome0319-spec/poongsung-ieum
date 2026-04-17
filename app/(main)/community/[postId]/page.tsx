@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { CSSProperties } from 'react'
 import ImageLightbox from '@/components/common/ImageLightbox'
 import DeletePostButton from '@/components/common/DeletePostButton'
+import ReactionButton from '@/components/common/ReactionButton'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { addComment } from '../actions'
@@ -187,6 +188,16 @@ export default async function CommunityPostDetailPage({
 
   const authorName = profileMap.get(post.author_id) ?? '이름 없음'
 
+  // 리액션 데이터 (기도)
+  const { data: reactionRows } = await supabase
+    .from('post_reactions')
+    .select('user_id')
+    .eq('post_id', postId)
+    .eq('type', 'pray')
+
+  const reactionCount = (reactionRows ?? []).length
+  const userReacted = !!user && (reactionRows ?? []).some((r) => r.user_id === user.id)
+
   return (
     <main className="page stack">
       <section
@@ -325,17 +336,36 @@ export default async function CommunityPostDetailPage({
           <ImageLightbox urls={post.image_urls} />
         )}
 
+        {/* 리액션 */}
+        {user && (
+          <div style={{
+            paddingTop: 4,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap',
+          }}>
+            <ReactionButton
+              postId={post.id}
+              initialCount={reactionCount}
+              initialReacted={userReacted}
+            />
+            {reactionCount > 0 && (
+              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                {reactionCount}명이 기도하고 있어요
+              </span>
+            )}
+          </div>
+        )}
+
         {canManage ? (
           <div
             className="button-row"
-            style={{
-              marginTop: '4px',
-            }}
+            style={{ marginTop: '4px' }}
           >
             <Link href={`/community/${post.id}/edit`} className="button secondary">
               수정하기
             </Link>
-
             <DeletePostButton postId={post.id} />
           </div>
         ) : null}

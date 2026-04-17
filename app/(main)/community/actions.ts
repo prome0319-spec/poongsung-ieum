@@ -238,6 +238,49 @@ export async function updatePost(formData: FormData) {
   goWithMessage(`/community/${postId}`, '게시글이 수정되었습니다.')
 }
 
+export async function toggleReaction(formData: FormData) {
+  const { supabase, user } = await getCurrentUserProfile()
+
+  const postId = toText(formData.get('post_id'))
+  const type = toText(formData.get('type')) || 'pray'
+
+  if (!postId) return
+
+  // 이미 리액션했으면 취소, 없으면 추가
+  const { data: existing } = await supabase
+    .from('post_reactions')
+    .select('id')
+    .eq('post_id', postId)
+    .eq('user_id', user.id)
+    .eq('type', type)
+    .maybeSingle()
+
+  if (existing) {
+    await supabase.from('post_reactions').delete().eq('id', existing.id)
+  } else {
+    await supabase.from('post_reactions').insert({ post_id: postId, user_id: user.id, type })
+
+    // 게시글 작성자(본인 제외)에게 알림
+    const { data: post } = await supabase
+      .from('posts')
+      .select('author_id, title')
+      .eq('id', postId)
+      .maybeSingle()
+
+    if (post && post.author_id !== user.id) {
+      await supabase.from('notifications').insert({
+        user_id: post.author_id,
+        type: 'post_reaction',
+        title: '누군가 기도하고 있어요 🙏',
+        body: `"${post.title.slice(0, 40)}"에 기도 응원이 달렸어요.`,
+        link_url: `/community/${postId}`,
+      })
+    }
+  }
+
+  revalidatePath(`/community/${postId}`)
+}
+
 export async function deletePost(formData: FormData) {
   const { supabase, user, systemRole } = await getCurrentUserProfile()
 

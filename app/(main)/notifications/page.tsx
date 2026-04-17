@@ -14,6 +14,7 @@ type NotificationType =
   | 'schedule_created'
   | 'schedule_updated'
   | 'post_comment'
+  | 'post_reaction'
   | 'counseling_reply'
   | 'notice'
 
@@ -33,6 +34,7 @@ function getTypeIcon(type: NotificationType): string {
     case 'schedule_created': return '📅'
     case 'schedule_updated': return '📅'
     case 'post_comment':     return '🗨️'
+    case 'post_reaction':    return '🙏'
     case 'counseling_reply': return '🤝'
     case 'notice':           return '📢'
     default:                 return '🔔'
@@ -45,6 +47,7 @@ function getTypeTheme(type: NotificationType): { bg: string; border: string; col
     case 'schedule_created':
     case 'schedule_updated': return { bg: 'var(--primary-softer)', border: 'var(--primary-border)', color: 'var(--primary-dark)' }
     case 'post_comment':     return { bg: '#ecfdf5', border: '#a7f3d0', color: '#065f46' }
+    case 'post_reaction':    return { bg: '#faf5ff', border: '#e9d5ff', color: '#7c3aed' }
     case 'counseling_reply': return { bg: '#f0fdf4', border: '#86efac', color: '#166534' }
     case 'notice':           return { bg: '#fff1f2', border: '#fecdd3', color: '#be123c' }
     default:                 return { bg: 'var(--bg-section)', border: 'var(--border)', color: 'var(--text-muted)' }

@@ -1,4 +1,5 @@
-import { redirect } from 'next/navigation'
+import { redirect, RedirectType } from 'next/navigation'
+import { isRedirectError } from 'next/dist/client/components/redirect-error'
 import { Suspense } from 'react'
 import BottomNav from '../../components/common/BottomNav'
 import MessageToast from '../../components/common/MessageToast'
@@ -11,9 +12,19 @@ export default async function MainLayout({
 }) {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const { data, error } = await supabase.auth.getUser()
+    if (error) {
+      // 만료·무효 토큰 → 세션 정리 후 로그인 페이지로
+      redirect('/api/auth/clear', RedirectType.replace)
+    }
+    user = data.user
+  } catch (err) {
+    // Next.js redirect()는 내부적으로 예외를 throw하므로 다시 throw
+    if (isRedirectError(err)) throw err
+    redirect('/api/auth/clear', RedirectType.replace)
+  }
 
   if (!user) {
     redirect('/login')

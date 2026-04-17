@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { isRedirectError } from 'next/dist/client/components/redirect-error'
 import { createClient } from '../../lib/supabase/server'
 
 function getString(formData: FormData, key: string) {
@@ -25,20 +26,21 @@ export async function login(formData: FormData) {
   try {
     const supabase = await createClient()
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    // 만료된 기존 세션 쿠키를 로컬에서만 정리 (서버 API 호출 없음)
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
-      goWithMessage('/login', error.message)
+      goWithMessage('/login', '이메일 또는 비밀번호가 올바르지 않습니다.')
     }
 
     revalidatePath('/', 'layout')
     goWithMessage('/home', '로그인되었습니다.')
   } catch (error) {
+    if (isRedirectError(error)) throw error
     console.error('login action error:', error)
-    goWithMessage('/login', '로그인 처리 중 서버 오류가 발생했습니다.')
+    goWithMessage('/login', '로그인 처리 중 서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.')
   }
 }
 
@@ -62,10 +64,10 @@ export async function signup(formData: FormData) {
   try {
     const supabase = await createClient()
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
+    // 만료된 기존 세션 쿠키를 로컬에서만 정리 (서버 API 호출 없음)
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+
+    const { data, error } = await supabase.auth.signUp({ email, password })
 
     if (error) {
       goWithMessage('/signup', error.message)
@@ -78,8 +80,9 @@ export async function signup(formData: FormData) {
     revalidatePath('/', 'layout')
     goWithMessage('/onboarding', '회원가입이 완료되었습니다.')
   } catch (error) {
+    if (isRedirectError(error)) throw error
     console.error('signup action error:', error)
-    goWithMessage('/signup', '회원가입 처리 중 서버 오류가 발생했습니다.')
+    goWithMessage('/signup', '회원가입 처리 중 서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.')
   }
 }
 
@@ -98,9 +101,15 @@ export async function logout() {
 export async function saveOnboarding(formData: FormData) {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const { data, error } = await supabase.auth.getUser()
+    if (error) goWithMessage('/login', '세션이 만료되었습니다. 다시 로그인해 주세요.')
+    user = data.user
+  } catch (err) {
+    if (isRedirectError(err)) throw err
+    goWithMessage('/login', '세션이 만료되었습니다. 다시 로그인해 주세요.')
+  }
 
   if (!user) {
     goWithMessage('/login', '로그인 후 다시 진행하세요.')

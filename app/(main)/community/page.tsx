@@ -14,6 +14,7 @@ type PostRow = {
   category: PostCategory
   is_notice: boolean | null
   created_at: string
+  prayCount?: number
 }
 
 type ProfileRow = {
@@ -142,6 +143,7 @@ function PostCard({
   post: PostRow
   author: AuthorInfo
   href: string
+  prayCount?: number
 }) {
   return (
     <Link href={href} className="list-item">
@@ -233,19 +235,35 @@ function PostCard({
             </span>
             {author.displayName}
           </span>
-          <span className="list-meta">{formatDateTime(post.created_at)}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {post.category === 'prayer' && (post.prayCount ?? 0) > 0 && (
+              <span style={{
+                fontSize: 11.5, fontWeight: 700,
+                color: '#7c3aed', background: '#faf5ff',
+                border: '1px solid #e9d5ff',
+                borderRadius: 'var(--r-pill)', padding: '2px 7px',
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+              }}>
+                🙏 {post.prayCount}
+              </span>
+            )}
+            <span className="list-meta">{formatDateTime(post.created_at)}</span>
+          </div>
         </div>
       </div>
     </Link>
   )
 }
 
+const PAGE_SIZE = 20
+
 export default async function CommunityPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string }>
+  searchParams: Promise<{ category?: string; page?: string }>
 }) {
-  const { category } = await searchParams
+  const { category, page: pageParam } = await searchParams
+  const page = Math.max(1, parseInt(pageParam ?? '1', 10) || 1)
   const supabase = await createClient()
 
   const {
@@ -291,11 +309,13 @@ export default async function CommunityPage({
   const pinnedPosts = (pinnedRows ?? []) as PostRow[]
   const pinnedIds = pinnedPosts.map((post) => post.id)
 
+  const offset = (page - 1) * PAGE_SIZE
+
   let postsQuery = supabase
     .from('posts')
     .select('id, author_id, title, content, category, is_notice, created_at')
     .order('created_at', { ascending: false })
-    .limit(30)
+    .range(offset, offset + PAGE_SIZE) // PAGE_SIZE+1 to detect hasMore
 
   if (isGeneralViewer) {
     postsQuery = postsQuery.neq('category', 'soldier')
@@ -312,7 +332,27 @@ export default async function CommunityPage({
   }
 
   const { data: postRows } = await postsQuery
-  const posts = (postRows ?? []) as PostRow[]
+  const allFetched = (postRows ?? []) as PostRow[]
+  const hasMore = allFetched.length > PAGE_SIZE
+  const posts = hasMore ? allFetched.slice(0, PAGE_SIZE) : allFetched
+
+  // 기도 리액션 카운트 (prayer 게시글만)
+  const prayerPostIds = posts.filter((p) => p.category === 'prayer').map((p) => p.id)
+  if (prayerPostIds.length > 0) {
+    const { data: reactionData } = await supabase
+      .from('post_reactions')
+      .select('post_id')
+      .in('post_id', prayerPostIds)
+      .eq('type', 'pray')
+
+    const countMap = new Map<string, number>()
+    for (const r of reactionData ?? []) {
+      countMap.set(r.post_id, (countMap.get(r.post_id) ?? 0) + 1)
+    }
+    for (const p of posts) {
+      if (p.category === 'prayer') p.prayCount = countMap.get(p.id) ?? 0
+    }
+  }
 
   const profileIds = Array.from(
     new Set([
@@ -342,6 +382,14 @@ export default async function CommunityPage({
   }
 
   const writeHref = user ? '/community/write' : '/login'
+
+  function pageHref(p: number) {
+    const params = new URLSearchParams()
+    if (selectedCategory !== 'all') params.set('category', selectedCategory)
+    if (p > 1) params.set('page', String(p))
+    const qs = params.toString()
+    return qs ? `/community?${qs}` : '/community'
+  }
 
   return (
     <main className="page stack">
@@ -461,11 +509,7 @@ export default async function CommunityPage({
               return (
                 <Link
                   key={filter.key}
-                  href={
-                    filter.key === 'all'
-                      ? '/community'
-                      : `/community?category=${filter.key}`
-                  }
+                  href={filter.key === 'all' ? '/community' : `/community?category=${filter.key}`}
                   className="badge"
                   style={{
                     marginBottom: 0,
@@ -510,14 +554,16 @@ export default async function CommunityPage({
               ? '최근 게시글'
               : `${allowedFilters.find((item) => item.key === selectedCategory)?.label ?? '게시글'} 목록`
           }
-          description="가장 최근에 올라온 글부터 확인할 수 있습니다."
+          description={page > 1 ? `${page}페이지 · 페이지당 ${PAGE_SIZE}개` : '가장 최근에 올라온 글부터 확인할 수 있습니다.'}
         />
 
         {posts.length === 0 ? (
           <div className="status-warning">
-            {selectedCategory === 'all'
-              ? '아직 올라온 게시글이 없어요. 첫 번째 글을 작성해 보세요!'
-              : `${allowedFilters.find((f) => f.key === selectedCategory)?.label ?? ''} 카테고리에 아직 게시글이 없어요.`}
+            {page > 1
+              ? '이 페이지에 더 이상 게시글이 없습니다.'
+              : selectedCategory === 'all'
+                ? '아직 올라온 게시글이 없어요. 첫 번째 글을 작성해 보세요!'
+                : `${allowedFilters.find((f) => f.key === selectedCategory)?.label ?? ''} 카테고리에 아직 게시글이 없어요.`}
           </div>
         ) : (
           <div className="list">
@@ -529,6 +575,55 @@ export default async function CommunityPage({
                 author={profileMap.get(post.author_id) ?? { displayName: '이름 없음', avatarUrl: null, isSoldier: false }}
               />
             ))}
+          </div>
+        )}
+
+        {/* 페이지네이션 */}
+        {(page > 1 || hasMore) && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+            paddingTop: 4,
+          }}>
+            {page > 1 ? (
+              <Link
+                href={pageHref(page - 1)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '8px 16px', borderRadius: 'var(--r-pill)',
+                  border: '1.5px solid var(--border-strong)',
+                  background: '#fff', color: 'var(--text)',
+                  fontSize: 14, fontWeight: 700, textDecoration: 'none',
+                }}
+              >
+                ‹ 이전
+              </Link>
+            ) : (
+              <div style={{ width: 72 }} />
+            )}
+
+            <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, minWidth: 60, textAlign: 'center' }}>
+              {page}페이지
+            </span>
+
+            {hasMore ? (
+              <Link
+                href={pageHref(page + 1)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '8px 16px', borderRadius: 'var(--r-pill)',
+                  border: '1.5px solid var(--border-strong)',
+                  background: '#fff', color: 'var(--text)',
+                  fontSize: 14, fontWeight: 700, textDecoration: 'none',
+                }}
+              >
+                다음 ›
+              </Link>
+            ) : (
+              <div style={{ width: 72 }} />
+            )}
           </div>
         )}
       </section>
