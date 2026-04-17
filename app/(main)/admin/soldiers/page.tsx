@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { loadUserContext } from '@/lib/utils/user-context'
 import { canAccessSoldierAdmin } from '@/lib/utils/permissions'
+import type { SystemRole } from '@/types/user'
 
 type SoldierProfile = {
   id: string
