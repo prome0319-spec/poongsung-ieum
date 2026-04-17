@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import HomeNoticePopup from '@/components/home/HomeNoticePopup'
 import { getUserTypeLabel, getUserTypeEmoji, getAllowedAudiences, isAdminOrPastor } from '@/lib/utils/permissions'
+import { loadUserContext } from '@/lib/utils/user-context'
 import type { SystemRole, HomeNotice } from '@/types/user'
 
 type Profile = {
@@ -201,6 +202,12 @@ export default async function HomePage() {
 
   if (!profile?.onboarding_completed) redirect('/onboarding')
 
+  const [ctx, pmLeaderRaw] = await Promise.all([
+    loadUserContext(user.id),
+    supabase.from('pm_group_leaders').select('id, is_head').eq('user_id', user.id).is('ended_at', null),
+  ])
+  const pmLeaders = (pmLeaderRaw.data ?? []) as { id: string; is_head: boolean }[]
+
   const audiences = getAllowedAudiences(profile.system_role, profile.is_soldier)
   const nowIso = new Date().toISOString()
 
@@ -348,7 +355,7 @@ export default async function HomePage() {
         <form method="GET" action="/search">
           <div style={{
             display: 'flex', alignItems: 'center', gap: 0,
-            background: '#fff',
+            background: 'var(--bg-card)',
             border: '1.5px solid var(--border-strong)',
             borderRadius: 'var(--r-lg)',
             overflow: 'hidden',
@@ -405,16 +412,28 @@ export default async function HomePage() {
           </div>
 
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <strong style={{ fontSize: '17px', fontWeight: 800, color: '#111827' }}>
-                {displayName}
-              </strong>
-              <span
-                className={`badge ${isSoldier ? 'badge-military' : ''}`}
-                style={{ fontSize: '11px', padding: '3px 8px' }}
-              >
+            <strong style={{ display: 'block', fontSize: '17px', fontWeight: 800, color: 'var(--text)', marginBottom: '5px' }}>
+              {displayName}
+            </strong>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap', marginBottom: '4px' }}>
+              <span className={`badge ${isSoldier ? 'badge-military' : ''}`} style={{ fontSize: '11px', padding: '3px 8px' }}>
                 {getUserTypeLabel(profile.system_role, profile.is_soldier)}
               </span>
+              {ctx.executiveTitles.map((title) => (
+                <span key={title} className={`badge ${title === '담당목사' ? 'badge-notice' : title === '군지음팀장' ? 'badge-military' : title === '사역국장' || title === '목양국장' ? 'badge-prayer' : title === '회계' ? 'badge-warning' : ''}`} style={{ fontSize: '11px', padding: '3px 8px' }}>
+                  {title}
+                </span>
+              ))}
+              {pmLeaders.length > 0 && (
+                <span className="badge badge-prayer" style={{ fontSize: '11px', padding: '3px 8px' }}>
+                  {pmLeaders.some((p) => p.is_head) ? '지기장' : 'PM지기'}
+                </span>
+              )}
+              {ctx.teamMemberships.filter((m) => m.role === 'leader').slice(0, 1).map((tm) => (
+                <span key={tm.teamId} className="badge badge-success" style={{ fontSize: '11px', padding: '3px 8px' }}>
+                  {tm.teamName} {tm.leaderTitle}
+                </span>
+              ))}
             </div>
             <p className="muted" style={{ margin: 0, fontSize: '13px' }}>
               {profile.military_unit || profile.bio || '풍성이음 공동체 멤버'}

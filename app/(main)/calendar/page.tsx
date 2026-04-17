@@ -102,6 +102,18 @@ function getNextMonthKey(monthKey: string) {
   return toMonthKey(base)
 }
 
+function getPrevYearKey(monthKey: string) {
+  const base = parseMonthKey(monthKey)
+  base.setUTCFullYear(base.getUTCFullYear() - 1)
+  return toMonthKey(base)
+}
+
+function getNextYearKey(monthKey: string) {
+  const base = parseMonthKey(monthKey)
+  base.setUTCFullYear(base.getUTCFullYear() + 1)
+  return toMonthKey(base)
+}
+
 function getMonthLabel(monthKey: string) {
   const date = parseMonthKey(monthKey)
 
@@ -207,41 +219,17 @@ function getAudienceDescription(systemRole: SystemRole | null, isSoldier: boolea
 function getCategoryTheme(category: ScheduleCategory) {
   switch (category) {
     case 'worship':
-      return {
-        softBg: '#eef2ff',
-        text: '#4338ca',
-        border: '#c7d2fe',
-      }
+      return { softBg: 'var(--cat-worship-bg)',  text: 'var(--cat-worship-text)',  border: 'var(--cat-worship-border)' }
     case 'meeting':
-      return {
-        softBg: '#eff6ff',
-        text: '#1d4ed8',
-        border: '#bfdbfe',
-      }
+      return { softBg: 'var(--cat-meeting-bg)',  text: 'var(--cat-meeting-text)',  border: 'var(--cat-meeting-border)' }
     case 'event':
-      return {
-        softBg: '#fdf2f8',
-        text: '#be185d',
-        border: '#fbcfe8',
-      }
+      return { softBg: 'var(--cat-event-bg)',    text: 'var(--cat-event-text)',    border: 'var(--cat-event-border)' }
     case 'service':
-      return {
-        softBg: '#ecfdf5',
-        text: '#047857',
-        border: '#a7f3d0',
-      }
+      return { softBg: 'var(--cat-service-bg)',  text: 'var(--cat-service-text)',  border: 'var(--cat-service-border)' }
     case 'birthday':
-      return {
-        softBg: '#fffbeb',
-        text: '#b45309',
-        border: '#fde68a',
-      }
+      return { softBg: 'var(--cat-birthday-bg)', text: 'var(--cat-birthday-text)', border: 'var(--cat-birthday-border)' }
     default:
-      return {
-        softBg: '#f3f4f6',
-        text: '#374151',
-        border: '#e5e7eb',
-      }
+      return { softBg: 'var(--cat-general-bg)',  text: 'var(--cat-general-text)',  border: 'var(--cat-general-border)' }
   }
 }
 
@@ -349,9 +337,9 @@ function EventMetaChips({ event }: { event: CalendarEvent }) {
           fontWeight: 600,
           padding: '5px 9px',
           borderRadius: 999,
-          background: '#f8fafc',
-          color: '#64748b',
-          border: '1px solid #e2e8f0',
+          background: 'var(--bg-section)',
+          color: 'var(--text-muted)',
+          border: '1px solid var(--border)',
         }}
       >
         {getAudienceLabel(event.audience)}
@@ -384,7 +372,7 @@ function EventCard({
           style={{
             fontSize: compact ? 15 : 16,
             fontWeight: 800,
-            color: '#0f172a',
+            color: 'var(--text)',
             lineHeight: 1.4,
           }}
         >
@@ -395,7 +383,7 @@ function EventCard({
           style={{
             display: 'grid',
             gap: 4,
-            color: '#475569',
+            color: 'var(--text-secondary)',
             fontSize: 14,
             lineHeight: 1.6,
           }}
@@ -413,7 +401,7 @@ function EventCard({
           {event.description ? (
             <div
               style={{
-                color: '#64748b',
+                color: 'var(--text-muted)',
               }}
             >
               {event.description}
@@ -430,9 +418,9 @@ function EventCard({
     color: 'inherit',
     border: `1px solid ${categoryTheme.border}`,
     borderRadius: 20,
-    background: '#ffffff',
+    background: 'var(--bg-card)',
     padding: compact ? 14 : 16,
-    boxShadow: '0 10px 30px rgba(15, 23, 42, 0.04)',
+    boxShadow: 'var(--shadow-xs)',
   }
 
   if (!href) {
@@ -601,6 +589,8 @@ export default async function CalendarPage({
   const todayKey = getTodayKeyInSeoul()
   const monthLabel = getMonthLabel(monthKey)
   const prevMonthKey = getPrevMonthKey(monthKey)
+  const prevYearKey = getPrevYearKey(monthKey)
+  const nextYearKey = getNextYearKey(monthKey)
   const monthGroups = buildGroupedMonthEvents(monthEvents)
 
   const displayName =
@@ -822,13 +812,13 @@ export default async function CalendarPage({
 
       <section
         style={{
-          border: '1px solid #e2e8f0',
+          border: '1px solid var(--border)',
           borderRadius: 24,
-          background: '#ffffff',
+          background: 'var(--bg-card)',
           padding: 18,
           display: 'grid',
           gap: 16,
-          boxShadow: '0 12px 32px rgba(15, 23, 42, 0.05)',
+          boxShadow: 'var(--shadow-sm)',
         }}
       >
         <div
@@ -846,7 +836,7 @@ export default async function CalendarPage({
                 margin: 0,
                 fontSize: 20,
                 fontWeight: 900,
-                color: '#0f172a',
+                color: 'var(--text)',
               }}
             >
               월간 달력
@@ -854,7 +844,7 @@ export default async function CalendarPage({
             <p
               style={{
                 margin: '8px 0 0',
-                color: '#64748b',
+                color: 'var(--text-muted)',
                 lineHeight: 1.6,
                 fontSize: 14,
               }}
@@ -863,7 +853,26 @@ export default async function CalendarPage({
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {/* 연도 이동 */}
+            <Link
+              href={`/calendar?month=${prevYearKey}`}
+              style={{
+                textDecoration: 'none',
+                width: 34, height: 34,
+                borderRadius: '50%',
+                border: '1.5px solid var(--border-strong)',
+                color: 'var(--text-muted)',
+                fontWeight: 800,
+                background: 'var(--bg-card)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 14, flexShrink: 0,
+              }}
+              title="작년으로"
+            >
+              «
+            </Link>
+
             <Link
               href={`/calendar?month=${prevMonthKey}`}
               style={{
@@ -873,7 +882,7 @@ export default async function CalendarPage({
                 border: '1.5px solid var(--border-strong)',
                 color: 'var(--text)',
                 fontWeight: 800,
-                background: '#ffffff',
+                background: 'var(--bg-card)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 18, flexShrink: 0,
               }}
@@ -882,7 +891,7 @@ export default async function CalendarPage({
               ‹
             </Link>
 
-            <div style={{ minWidth: 110, textAlign: 'center', fontSize: 18, fontWeight: 900, color: '#0f172a' }}>
+            <div style={{ minWidth: 110, textAlign: 'center', fontSize: 18, fontWeight: 900, color: 'var(--text)' }}>
               {monthLabel}
             </div>
 
@@ -895,7 +904,7 @@ export default async function CalendarPage({
                 border: '1.5px solid var(--border-strong)',
                 color: 'var(--text)',
                 fontWeight: 800,
-                background: '#ffffff',
+                background: 'var(--bg-card)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 18, flexShrink: 0,
               }}
@@ -904,19 +913,37 @@ export default async function CalendarPage({
               ›
             </Link>
 
+            <Link
+              href={`/calendar?month=${nextYearKey}`}
+              style={{
+                textDecoration: 'none',
+                width: 34, height: 34,
+                borderRadius: '50%',
+                border: '1.5px solid var(--border-strong)',
+                color: 'var(--text-muted)',
+                fontWeight: 800,
+                background: 'var(--bg-card)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 14, flexShrink: 0,
+              }}
+              title="내년으로"
+            >
+              »
+            </Link>
+
             {/* iCal 내보내기 */}
             <Link
               href="/calendar/ical?months=3"
               download="poongsung-ieum.ics"
               style={{
                 textDecoration: 'none',
-                width: 38, height: 38,
+                width: 34, height: 34,
                 borderRadius: '50%',
                 border: '1.5px solid var(--border-strong)',
                 color: 'var(--text-muted)',
-                background: '#ffffff',
+                background: 'var(--bg-card)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 16, flexShrink: 0,
+                fontSize: 14, flexShrink: 0,
               }}
               title="캘린더 내보내기 (.ics)"
             >
@@ -1050,6 +1077,15 @@ export default async function CalendarPage({
                       )
                     })}
                   </div>
+
+                  {/* 모바일: 셀 전체 탭 → 해당 날짜 이벤트 목록으로 */}
+                  {dayEvents.length > 0 && (
+                    <a
+                      href={`#date-${cell.dateKey}`}
+                      className="cal-cell-mobile-link"
+                      aria-label={`${cell.day}일 일정 보기`}
+                    />
+                  )}
                 </div>
               )
             })}
@@ -1067,13 +1103,13 @@ export default async function CalendarPage({
       >
         <div
           style={{
-            border: '1px solid #e2e8f0',
+            border: '1px solid var(--border)',
             borderRadius: 24,
-            background: '#ffffff',
+            background: 'var(--bg-card)',
             padding: 18,
             display: 'grid',
             gap: 14,
-            boxShadow: '0 12px 32px rgba(15, 23, 42, 0.05)',
+            boxShadow: 'var(--shadow-sm)',
           }}
         >
           <div>
@@ -1082,7 +1118,7 @@ export default async function CalendarPage({
                 margin: 0,
                 fontSize: 20,
                 fontWeight: 900,
-                color: '#0f172a',
+                color: 'var(--text)',
               }}
             >
               다가오는 일정
@@ -1090,7 +1126,7 @@ export default async function CalendarPage({
             <p
               style={{
                 margin: '8px 0 0',
-                color: '#64748b',
+                color: 'var(--text-muted)',
                 lineHeight: 1.6,
                 fontSize: 14,
               }}
@@ -1102,11 +1138,11 @@ export default async function CalendarPage({
           {upcomingEvents.length === 0 ? (
             <div
               style={{
-                border: '1px dashed #cbd5e1',
+                border: '1px dashed var(--border-strong)',
                 borderRadius: 18,
                 padding: 18,
-                color: '#64748b',
-                background: '#f8fafc',
+                color: 'var(--text-muted)',
+                background: 'var(--bg-section)',
               }}
             >
               예정된 일정이 아직 없어요.
@@ -1122,13 +1158,13 @@ export default async function CalendarPage({
 
         <div
           style={{
-            border: '1px solid #e2e8f0',
+            border: '1px solid var(--border)',
             borderRadius: 24,
-            background: '#ffffff',
+            background: 'var(--bg-card)',
             padding: 18,
             display: 'grid',
             gap: 14,
-            boxShadow: '0 12px 32px rgba(15, 23, 42, 0.05)',
+            boxShadow: 'var(--shadow-sm)',
           }}
         >
           <div>
@@ -1137,7 +1173,7 @@ export default async function CalendarPage({
                 margin: 0,
                 fontSize: 20,
                 fontWeight: 900,
-                color: '#0f172a',
+                color: 'var(--text)',
               }}
             >
               이번 달 한눈에 보기
@@ -1145,7 +1181,7 @@ export default async function CalendarPage({
             <p
               style={{
                 margin: '8px 0 0',
-                color: '#64748b',
+                color: 'var(--text-muted)',
                 lineHeight: 1.6,
                 fontSize: 14,
               }}
@@ -1206,13 +1242,13 @@ export default async function CalendarPage({
 
       <section
         style={{
-          border: '1px solid #e2e8f0',
+          border: '1px solid var(--border)',
           borderRadius: 24,
-          background: '#ffffff',
+          background: 'var(--bg-card)',
           padding: 18,
           display: 'grid',
           gap: 16,
-          boxShadow: '0 12px 32px rgba(15, 23, 42, 0.05)',
+          boxShadow: 'var(--shadow-sm)',
         }}
       >
         <div>
@@ -1221,7 +1257,7 @@ export default async function CalendarPage({
               margin: 0,
               fontSize: 20,
               fontWeight: 900,
-              color: '#0f172a',
+              color: 'var(--text)',
             }}
           >
             {monthLabel} 일정 목록
@@ -1229,7 +1265,7 @@ export default async function CalendarPage({
           <p
             style={{
               margin: '8px 0 0',
-              color: '#64748b',
+              color: 'var(--text-muted)',
               lineHeight: 1.6,
               fontSize: 14,
             }}
@@ -1241,11 +1277,11 @@ export default async function CalendarPage({
         {monthGroups.length === 0 ? (
           <div
             style={{
-              border: '1px dashed #cbd5e1',
+              border: '1px dashed var(--border-strong)',
               borderRadius: 18,
               padding: 18,
-              color: '#64748b',
-              background: '#f8fafc',
+              color: 'var(--text-muted)',
+              background: 'var(--bg-section)',
             }}
           >
             이 달에는 표시할 일정이 없어요.
@@ -1255,9 +1291,11 @@ export default async function CalendarPage({
             {monthGroups.map((group) => (
               <div
                 key={group.dateKey}
+                id={`date-${group.dateKey}`}
                 style={{
                   display: 'grid',
                   gap: 12,
+                  scrollMarginTop: 80,
                 }}
               >
                 <div
@@ -1271,7 +1309,7 @@ export default async function CalendarPage({
                     style={{
                       fontSize: 16,
                       fontWeight: 900,
-                      color: '#0f172a',
+                      color: 'var(--text)',
                     }}
                   >
                     {formatDateHeading(group.dateKey)}
@@ -1280,7 +1318,7 @@ export default async function CalendarPage({
                     style={{
                       height: 1,
                       flex: 1,
-                      background: '#e2e8f0',
+                      background: 'var(--border)',
                     }}
                   />
                 </div>

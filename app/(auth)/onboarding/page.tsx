@@ -45,7 +45,7 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
 
       <section
         style={{
-          background: '#fff',
+          background: 'var(--bg-card)',
           border: '1px solid var(--primary-border)',
           borderRadius: 'var(--r-lg)',
           padding: 22,
@@ -57,8 +57,9 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
               style={{
                 padding: '12px 16px',
                 borderRadius: 10,
-                background: '#fef2f2',
-                color: '#991b1b',
+                background: 'var(--danger-soft)',
+                border: '1px solid var(--danger-border)',
+                color: 'var(--danger)',
                 fontSize: 14,
               }}
             >

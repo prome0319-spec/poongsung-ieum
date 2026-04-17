@@ -78,6 +78,26 @@
   /* ── Transition ── */
   --t-fast:  0.15s ease;
   --t-base:  0.2s ease;
+
+  /* ── Calendar category theme tokens ── */
+  --cat-worship-bg:      #eef2ff;
+  --cat-worship-text:    #4338ca;
+  --cat-worship-border:  #c7d2fe;
+  --cat-meeting-bg:      #eff6ff;
+  --cat-meeting-text:    #1d4ed8;
+  --cat-meeting-border:  #bfdbfe;
+  --cat-event-bg:        #fdf2f8;
+  --cat-event-text:      #be185d;
+  --cat-event-border:    #fbcfe8;
+  --cat-service-bg:      #ecfdf5;
+  --cat-service-text:    #047857;
+  --cat-service-border:  #a7f3d0;
+  --cat-birthday-bg:     #fffbeb;
+  --cat-birthday-text:   #b45309;
+  --cat-birthday-border: #fde68a;
+  --cat-general-bg:      #f3f4f6;
+  --cat-general-text:    #374151;
+  --cat-general-border:  #e5e7eb;
 }
 
 /* ============================================================
@@ -1146,11 +1166,12 @@ button:focus-visible, a:focus-visible {
 }
 
 .cal-cell {
+  position: relative;
   min-height: 88px;
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   padding: 7px 6px;
-  background: #fff;
+  background: var(--bg-card);
   display: grid;
   align-content: start;
   gap: 4px;
@@ -1219,12 +1240,22 @@ button:focus-visible, a:focus-visible {
   flex-shrink: 0;
 }
 
+/* 모바일: 날짜 셀 전체를 탭하면 해당 날짜 이벤트 목록으로 이동 */
+.cal-cell-mobile-link {
+  display: none;
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-md);
+  z-index: 2;
+}
+
 @media (max-width: 560px) {
   .cal-grid { min-width: 0; gap: 3px; }
-  .cal-cell { min-height: 52px; padding: 5px 4px; }
+  .cal-cell { min-height: 64px; padding: 5px 4px; }
   .cal-day-num { width: 22px; height: 22px; font-size: 11px; }
   .cal-pill-list { display: none !important; }
   .cal-dot-row { display: flex; }
+  .cal-cell-mobile-link { display: block; }
 }
 
 /* ============================================================
@@ -1283,6 +1314,26 @@ button:focus-visible, a:focus-visible {
     --shadow-md:  0 8px 24px rgba(0, 0, 0, 0.4);
     --shadow-lg:  0 16px 40px rgba(0, 0, 0, 0.45);
     --shadow-up:  0 -4px 16px rgba(0, 0, 0, 0.3);
+
+    /* Calendar category dark variants */
+    --cat-worship-bg:      #1e1b4b;
+    --cat-worship-text:    #818cf8;
+    --cat-worship-border:  #3730a3;
+    --cat-meeting-bg:      #172554;
+    --cat-meeting-text:    #60a5fa;
+    --cat-meeting-border:  #1e40af;
+    --cat-event-bg:        #500724;
+    --cat-event-text:      #f472b6;
+    --cat-event-border:    #9d174d;
+    --cat-service-bg:      #064e3b;
+    --cat-service-text:    #34d399;
+    --cat-service-border:  #065f46;
+    --cat-birthday-bg:     #451a03;
+    --cat-birthday-text:   #fbbf24;
+    --cat-birthday-border: #92400e;
+    --cat-general-bg:      #1f2937;
+    --cat-general-text:    #9ca3af;
+    --cat-general-border:  #374151;
   }
 
   html, body { background: var(--bg); }
@@ -1290,6 +1341,8 @@ button:focus-visible, a:focus-visible {
   /* 카드, 인풋 등 하드코딩된 #fff 대응 */
   .card          { background: var(--bg-card); }
   .list-item     { background: var(--bg-card); }
+  .quick-card    { background: var(--bg-card); }
+  .info-tile     { background: var(--bg-card); }
   .input, .textarea, .select { background: var(--bg-card); color: var(--text); border-color: var(--border-strong); }
   .input:focus, .textarea:focus, .select:focus { background: var(--bg-card); }
   .cal-cell      { background: var(--bg-card); }
