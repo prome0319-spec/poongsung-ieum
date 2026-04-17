@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { canManageSchedule } from '@/lib/utils/permissions'
 import type { SystemRole } from '@/types/user'
 import { updateSchedule } from '@/app/(main)/calendar/actions'
+import DateTimePicker from '@/components/common/DateTimePicker'
 
 type ScheduleCategory = 'worship' | 'meeting' | 'event' | 'service' | 'general'
 type Audience = 'all' | 'soldier' | 'general'
@@ -124,11 +125,11 @@ export default async function AdminCalendarEditPage({
             </Field>
 
             <Field label="시작 일시 *">
-              <input name="start_at" type="datetime-local" required defaultValue={formatDatetimeLocal(schedule.start_at)} style={INPUT_STYLE} />
+              <DateTimePicker name="start_at" required defaultValue={formatDatetimeLocal(schedule.start_at)} />
             </Field>
 
             <Field label="종료 일시 *">
-              <input name="end_at" type="datetime-local" required defaultValue={formatDatetimeLocal(schedule.end_at)} style={INPUT_STYLE} />
+              <DateTimePicker name="end_at" required defaultValue={formatDatetimeLocal(schedule.end_at)} />
             </Field>
           </div>
 

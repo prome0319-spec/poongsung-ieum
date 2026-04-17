@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { loadUserContext } from '@/lib/utils/user-context'
+import DatePicker from '@/components/common/DatePicker'
 import {
   canViewAttendance,
   canRecordAttendance,
@@ -150,7 +151,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
       {/* 헤더 */}
       <div style={{ marginBottom: '20px' }}>
         <h1 className="page-title">출석체크</h1>
-        <p className="page-subtitle">주일 예배 출석을 관리합니다.</p>
+        <p className="page-subtitle">날짜와 소그룹을 선택하고 출석 상태를 기록하세요.</p>
       </div>
 
       {message && (
@@ -161,15 +162,8 @@ export default async function AttendancePage({ searchParams }: PageProps) {
       <div className="card" style={{ marginBottom: '16px', padding: '14px 16px' }}>
         <form method="GET" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div className="field" style={{ flex: '1', minWidth: '140px' }}>
-            <label className="field-label" htmlFor="date">날짜</label>
-            <input
-              id="date"
-              name="date"
-              type="date"
-              className="input"
-              defaultValue={selectedDate}
-              style={{ fontSize: '14px' }}
-            />
+            <label className="field-label">날짜</label>
+            <DatePicker name="date" defaultValue={selectedDate} />
           </div>
 
           {pmGroups.length > 0 && (

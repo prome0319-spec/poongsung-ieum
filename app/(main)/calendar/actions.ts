@@ -105,7 +105,7 @@ export async function createSchedule(formData: FormData) {
     redirect('/admin/calendar?error=invalid_date_range')
   }
 
-  const { error } = await supabase.from('schedules').insert({
+  const { data: newSchedule, error } = await supabase.from('schedules').insert({
     title,
     description: description || null,
     location: location || null,
@@ -115,11 +115,34 @@ export async function createSchedule(formData: FormData) {
     end_at: endAt,
     created_by: user.id,
     is_recurring: false,
-  })
+  }).select('id').single()
 
-  if (error) {
+  if (error || !newSchedule) {
     console.error('[createSchedule] insert error:', error)
     redirect('/admin/calendar?error=create_failed')
+  }
+
+  // 대상 멤버들에게 일정 알림 전송
+  let profileQuery = supabase.from('profiles').select('id').neq('id', user.id)
+  if (audience === 'soldier') {
+    profileQuery = profileQuery.eq('is_soldier', true)
+  } else if (audience === 'general') {
+    profileQuery = profileQuery.eq('is_soldier', false)
+  }
+  const { data: targetProfiles } = await profileQuery
+  if (targetProfiles && targetProfiles.length > 0) {
+    const startDate = new Intl.DateTimeFormat('ko-KR', {
+      timeZone: 'Asia/Seoul', month: 'long', day: 'numeric', weekday: 'short',
+    }).format(new Date(startAt))
+    await supabase.from('notifications').insert(
+      targetProfiles.map((p) => ({
+        user_id: p.id,
+        type: 'schedule_created',
+        title: `새 일정: ${title}`,
+        body: `${startDate}${location ? ' · ' + location : ''}`,
+        link_url: `/calendar/${newSchedule.id}`,
+      }))
+    )
   }
 
   revalidatePath('/home')
@@ -189,7 +212,7 @@ export async function bulkCreateSchedules(formData: FormData) {
 }
 
 export async function updateSchedule(formData: FormData) {
-  const { supabase } = await requireAdmin()
+  const { supabase, user } = await requireAdmin()
 
   const scheduleId = toText(formData.get('schedule_id'))
   const title = toText(formData.get('title'))
@@ -234,6 +257,29 @@ export async function updateSchedule(formData: FormData) {
   if (error) {
     console.error('[updateSchedule] update error:', error)
     redirect(`/admin/calendar/${scheduleId}/edit?error=update_failed`)
+  }
+
+  // 대상 멤버들에게 일정 수정 알림
+  let profileQuery = supabase.from('profiles').select('id').neq('id', user.id)
+  if (audience === 'soldier') {
+    profileQuery = profileQuery.eq('is_soldier', true)
+  } else if (audience === 'general') {
+    profileQuery = profileQuery.eq('is_soldier', false)
+  }
+  const { data: targetProfiles } = await profileQuery
+  if (targetProfiles && targetProfiles.length > 0) {
+    const startDate = new Intl.DateTimeFormat('ko-KR', {
+      timeZone: 'Asia/Seoul', month: 'long', day: 'numeric', weekday: 'short',
+    }).format(new Date(startAt))
+    await supabase.from('notifications').insert(
+      targetProfiles.map((p) => ({
+        user_id: p.id,
+        type: 'schedule_updated',
+        title: `일정 변경: ${title}`,
+        body: `${startDate}${location ? ' · ' + location : ''}`,
+        link_url: `/calendar/${scheduleId}`,
+      }))
+    )
   }
 
   revalidatePath('/home')

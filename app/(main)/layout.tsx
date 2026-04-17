@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
+import { Suspense } from 'react'
 import BottomNav from '../../components/common/BottomNav'
+import MessageToast from '../../components/common/MessageToast'
 import { createClient } from '../../lib/supabase/server'
 
 export default async function MainLayout({
@@ -27,6 +29,12 @@ export default async function MainLayout({
     redirect('/onboarding')
   }
 
+  const { count: unreadCount } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('is_read', false)
+
   return (
     <div
       style={{
@@ -46,7 +54,10 @@ export default async function MainLayout({
         {children}
       </main>
 
-      <BottomNav />
+      <BottomNav unreadNotifications={unreadCount ?? 0} />
+      <Suspense>
+        <MessageToast />
+      </Suspense>
     </div>
   )
 }

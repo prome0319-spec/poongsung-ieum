@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { isAdminOrPastor } from '@/lib/utils/permissions'
 import { upsertVolunteerDuty, deleteVolunteerDuty, toggleVolunteerDutyActive } from '../../volunteer/actions'
+import DatePicker from '@/components/common/DatePicker'
 import type { SystemRole } from '@/types/user'
 
 type PageProps = {
@@ -112,7 +113,7 @@ export default async function AdminVolunteerPage({ searchParams }: PageProps) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
             <div className="field">
               <label className="field-label">날짜 *</label>
-              <input name="duty_date" type="date" className="input" defaultValue={getTodayStr()} required style={{ fontSize: '13px' }} />
+              <DatePicker name="duty_date" defaultValue={getTodayStr()} required />
             </div>
             <div className="field">
               <label className="field-label">시작 시간</label>

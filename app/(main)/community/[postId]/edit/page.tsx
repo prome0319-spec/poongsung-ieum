@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import PostImageUpload from '@/components/common/PostImageUpload'
 import { updatePost } from '../../actions'
 
 type Post = {
@@ -10,6 +11,7 @@ type Post = {
   content: string
   category: 'notice' | 'free' | 'prayer' | 'soldier'
   is_notice: boolean | null
+  image_urls: string[] | null
 }
 
 function InfoCard({
@@ -66,7 +68,7 @@ export default async function CommunityPostEditPage({
 
   const { data: postData } = await supabase
     .from('posts')
-    .select('id, author_id, title, content, category, is_notice')
+    .select('id, author_id, title, content, category, is_notice, image_urls')
     .eq('id', postId)
     .maybeSingle()
 
@@ -181,21 +183,25 @@ export default async function CommunityPostEditPage({
               <div className="muted" style={{ marginBottom: '6px' }}>
                 현재 카테고리
               </div>
-              <strong>{post.category}</strong>
+              <strong>{{ notice: '공지', free: '자유', prayer: '기도', soldier: '군지음' }[post.category] ?? post.category}</strong>
             </div>
 
             <div className="list-item" style={{ padding: '14px' }}>
               <div className="muted" style={{ marginBottom: '6px' }}>
                 군지음 카테고리
               </div>
-              <strong>{canWriteSoldier ? '수정 가능' : '수정 불가'}</strong>
+              <strong style={{ color: canWriteSoldier ? 'var(--success)' : 'var(--text-muted)' }}>
+                {canWriteSoldier ? '수정 가능' : '해당 없음'}
+              </strong>
             </div>
 
             <div className="list-item" style={{ padding: '14px' }}>
               <div className="muted" style={{ marginBottom: '6px' }}>
-                공지 설정 권한
+                공지 설정
               </div>
-              <strong>{canWriteNotice ? '관리자 가능' : '관리자 전용'}</strong>
+              <strong style={{ color: canWriteNotice ? 'var(--success)' : 'var(--text-muted)' }}>
+                {canWriteNotice ? '가능' : '관리자 전용'}
+              </strong>
             </div>
           </div>
         </div>
@@ -310,6 +316,18 @@ export default async function CommunityPostEditPage({
             </div>
           </div>
 
+          <div className="divider" />
+
+          <div className="stack" style={{ gap: '10px' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, letterSpacing: '-0.02em', color: '#172033' }}>
+              3. 이미지 첨부
+            </h2>
+            <p className="muted" style={{ margin: 0 }}>
+              기존 이미지를 유지하거나 새 이미지를 추가할 수 있습니다. (최대 3장)
+            </p>
+            <PostImageUpload defaultUrls={post.image_urls ?? []} />
+          </div>
+
           {canWriteNotice ? (
             <>
               <div className="divider" />
@@ -324,7 +342,7 @@ export default async function CommunityPostEditPage({
                     color: '#172033',
                   }}
                 >
-                  3. 공지 설정
+                  4. 공지 설정
                 </h2>
                 <p className="muted" style={{ margin: 0 }}>
                   관리자일 경우 공지 여부와 상단 고정 상태를 함께 조정할 수 있습니다.
@@ -383,17 +401,17 @@ export default async function CommunityPostEditPage({
 
       <section className="stack" style={{ gap: '10px' }}>
         <InfoCard
-          title="제목은 더 짧고 분명하게"
-          description="핵심 내용을 먼저 드러내면 목록 화면에서도 글의 목적이 잘 보입니다."
+          title="✏️ 제목 수정 팁"
+          description="목록에서 한눈에 보이도록 핵심 내용을 앞쪽에 배치하면 더 잘 읽힙니다."
         />
         <InfoCard
-          title="본문은 문단을 나누어 수정"
-          description="공지, 나눔, 기도제목 모두 문단과 줄바꿈을 적절히 나누면 읽기 쉬워집니다."
+          title="📝 본문 수정 팁"
+          description="단락 사이에 줄바꿈을 추가하면 모바일에서 읽기 훨씬 편해집니다."
         />
         {canWriteNotice ? (
           <InfoCard
-            title="공지 여부 다시 점검"
-            description="중요도가 낮아졌다면 공지 설정을 해제하고 일반 카테고리로 돌리는 것도 가능합니다."
+            title="📌 공지 설정 안내"
+            description="중요도가 줄었다면 공지 해제 후 자유 카테고리로 변경해도 됩니다. 공지는 커뮤니티 상단에 항상 노출됩니다."
           />
         ) : null}
       </section>

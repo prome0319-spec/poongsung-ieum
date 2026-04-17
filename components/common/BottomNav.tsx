@@ -9,6 +9,10 @@ type MenuItem = {
   icon: (active: boolean) => React.ReactNode
 }
 
+type BottomNavProps = {
+  unreadNotifications?: number
+}
+
 function HomeIcon({ active }: { active: boolean }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -86,6 +90,28 @@ function CalendarIcon({ active }: { active: boolean }) {
   )
 }
 
+function BellIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 3C8.686 3 6 5.686 6 9V14L4 16V17H20V16L18 14V9C18 5.686 15.314 3 12 3Z"
+        stroke="currentColor"
+        strokeWidth={active ? '2.2' : '1.7'}
+        fill={active ? 'currentColor' : 'none'}
+        fillOpacity={active ? '0.15' : '0'}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10 18C10 19.1046 10.8954 20 12 20C13.1046 20 14 19.1046 14 18"
+        stroke="currentColor"
+        strokeWidth={active ? '2.2' : '1.7'}
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 function MyIcon({ active }: { active: boolean }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -113,6 +139,7 @@ const menus: MenuItem[] = [
   { href: '/chat', label: '채팅', icon: (a) => <ChatIcon active={a} /> },
   { href: '/community', label: '커뮤니티', icon: (a) => <CommunityIcon active={a} /> },
   { href: '/calendar', label: '캘린더', icon: (a) => <CalendarIcon active={a} /> },
+  { href: '/notifications', label: '알림', icon: (a) => <BellIcon active={a} /> },
   { href: '/my', label: '마이', icon: (a) => <MyIcon active={a} /> },
 ]
 
@@ -121,13 +148,15 @@ function isActivePath(pathname: string, href: string) {
   return pathname.startsWith(`${href}/`)
 }
 
-export default function BottomNav() {
+export default function BottomNav({ unreadNotifications = 0 }: BottomNavProps) {
   const pathname = usePathname()
 
   return (
     <nav className="bottom-nav" aria-label="하단 메뉴">
       {menus.map((menu) => {
         const isActive = pathname ? isActivePath(pathname, menu.href) : false
+        const isNotif = menu.href === '/notifications'
+        const showBadge = isNotif && unreadNotifications > 0
 
         return (
           <Link
@@ -135,8 +164,30 @@ export default function BottomNav() {
             href={menu.href}
             aria-current={isActive ? 'page' : undefined}
           >
-            <span className="nav-icon-wrap">
+            <span className="nav-icon-wrap" style={{ position: 'relative' }}>
               {menu.icon(isActive)}
+              {showBadge && (
+                <span style={{
+                  position: 'absolute',
+                  top: -2,
+                  right: -4,
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: 8,
+                  background: 'var(--primary)',
+                  color: '#fff',
+                  fontSize: 10,
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 4px',
+                  lineHeight: 1,
+                  border: '1.5px solid #fff',
+                }}>
+                  {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                </span>
+              )}
             </span>
             <span>{menu.label}</span>
           </Link>

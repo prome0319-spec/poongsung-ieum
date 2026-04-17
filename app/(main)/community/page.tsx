@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import type { CSSProperties } from 'react'
 import { createClient } from '@/lib/supabase/server'
 
@@ -19,6 +20,14 @@ type ProfileRow = {
   id: string
   name: string | null
   nickname: string | null
+  avatar_url: string | null
+  is_soldier: boolean | null
+}
+
+type AuthorInfo = {
+  displayName: string
+  avatarUrl: string | null
+  isSoldier: boolean
 }
 
 function formatDateTime(value: string) {
@@ -127,11 +136,11 @@ function SectionHeader({
 
 function PostCard({
   post,
-  authorName,
+  author,
   href,
 }: {
   post: PostRow
-  authorName: string
+  author: AuthorInfo
   href: string
 }) {
   return (
@@ -202,7 +211,28 @@ function PostCard({
             flexWrap: 'wrap',
           }}
         >
-          <span className="list-meta">{authorName}</span>
+          <span className="list-meta" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{
+              width: 20, height: 20, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+              background: author.isSoldier ? 'var(--military-soft)' : 'var(--primary-soft)',
+              border: `1px solid ${author.isSoldier ? 'var(--military-soft-border)' : 'var(--primary-border)'}`,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {author.avatarUrl ? (
+                <Image
+                  src={author.avatarUrl}
+                  alt={author.displayName}
+                  width={20}
+                  height={20}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  unoptimized
+                />
+              ) : (
+                <span style={{ fontSize: 10 }}>{author.isSoldier ? '🎖' : '✝'}</span>
+              )}
+            </span>
+            {author.displayName}
+          </span>
           <span className="list-meta">{formatDateTime(post.created_at)}</span>
         </div>
       </div>
@@ -291,18 +321,22 @@ export default async function CommunityPage({
     ])
   )
 
-  let profileMap = new Map<string, string>()
+  let profileMap = new Map<string, AuthorInfo>()
 
   if (profileIds.length > 0) {
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, name, nickname')
+      .select('id, name, nickname, avatar_url, is_soldier')
       .in('id', profileIds)
 
     profileMap = new Map(
       ((profiles ?? []) as ProfileRow[]).map((profile) => [
         profile.id,
-        profile.nickname || profile.name || '이름 없음',
+        {
+          displayName: profile.nickname || profile.name || '이름 없음',
+          avatarUrl: profile.avatar_url ?? null,
+          isSoldier: !!profile.is_soldier,
+        },
       ])
     )
   }
@@ -390,15 +424,17 @@ export default async function CommunityPage({
               gap: '10px',
             }}
           >
-            <div className="list-item" style={{ padding: '14px' }}>
-              <div className="muted" style={{ marginBottom: '6px' }}>
-                고정 공지
+            {pinnedPosts.length > 0 && (
+              <div className="list-item" style={{ padding: '14px' }}>
+                <div className="muted" style={{ marginBottom: '6px' }}>
+                  📌 고정 공지
+                </div>
+                <strong>{pinnedPosts.length}개</strong>
               </div>
-              <strong>{pinnedPosts.length}개</strong>
-            </div>
+            )}
             <div className="list-item" style={{ padding: '14px' }}>
               <div className="muted" style={{ marginBottom: '6px' }}>
-                현재 필터
+                보기 중
               </div>
               <strong>
                 {allowedFilters.find((item) => item.key === selectedCategory)?.label ?? '전체'}
@@ -406,7 +442,7 @@ export default async function CommunityPage({
             </div>
             <div className="list-item" style={{ padding: '14px' }}>
               <div className="muted" style={{ marginBottom: '6px' }}>
-                최근 목록
+                📝 최신 게시글
               </div>
               <strong>{posts.length}개</strong>
             </div>
@@ -460,7 +496,7 @@ export default async function CommunityPage({
                 key={post.id}
                 post={post}
                 href={`/community/${post.id}`}
-                authorName={profileMap.get(post.author_id) ?? '이름 없음'}
+                author={profileMap.get(post.author_id) ?? { displayName: '이름 없음', avatarUrl: null, isSoldier: false }}
               />
             ))}
           </div>
@@ -478,7 +514,11 @@ export default async function CommunityPage({
         />
 
         {posts.length === 0 ? (
-          <div className="status-warning">해당 조건의 게시글이 아직 없습니다.</div>
+          <div className="status-warning">
+            {selectedCategory === 'all'
+              ? '아직 올라온 게시글이 없어요. 첫 번째 글을 작성해 보세요!'
+              : `${allowedFilters.find((f) => f.key === selectedCategory)?.label ?? ''} 카테고리에 아직 게시글이 없어요.`}
+          </div>
         ) : (
           <div className="list">
             {posts.map((post) => (
@@ -486,7 +526,7 @@ export default async function CommunityPage({
                 key={post.id}
                 post={post}
                 href={`/community/${post.id}`}
-                authorName={profileMap.get(post.author_id) ?? '이름 없음'}
+                author={profileMap.get(post.author_id) ?? { displayName: '이름 없음', avatarUrl: null, isSoldier: false }}
               />
             ))}
           </div>

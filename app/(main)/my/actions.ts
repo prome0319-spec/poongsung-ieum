@@ -18,6 +18,54 @@ function goWithMessage(path: string, message: string): never {
   redirect(`${path}?message=${encodeURIComponent(message)}`)
 }
 
+export async function uploadAvatar(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const file = formData.get('avatar') as File | null
+  if (!file || file.size === 0) {
+    goWithMessage('/my/edit', '파일을 선택해 주세요.')
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    goWithMessage('/my/edit', '파일 크기는 5MB 이하여야 합니다.')
+  }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const path = `${user.id}/avatar.${ext}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, contentType: file.type })
+
+  if (uploadError) {
+    goWithMessage('/my/edit', `업로드 실패: ${uploadError.message}`)
+  }
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('avatars')
+    .getPublicUrl(path)
+
+  // 캐시 버스팅을 위해 타임스탬프 쿼리 추가
+  const avatarUrl = `${publicUrl}?t=${Date.now()}`
+
+  const { error: updateError } = await supabase
+    .from('profiles')
+    .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+    .eq('id', user.id)
+
+  if (updateError) {
+    goWithMessage('/my/edit', `프로필 업데이트 실패: ${updateError.message}`)
+  }
+
+  revalidatePath('/my')
+  revalidatePath('/my/edit')
+  revalidatePath('/home')
+
+  goWithMessage('/my', '프로필 사진이 변경되었습니다.')
+}
+
 export async function updateMyProfile(formData: FormData) {
   const supabase = await createClient()
 

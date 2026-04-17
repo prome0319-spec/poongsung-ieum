@@ -42,7 +42,7 @@ export async function createQrToken(formData: FormData) {
 
   if (error || !data) goWithMessage('/attendance/qr', `QR 생성 실패: ${error?.message ?? '알 수 없는 오류'}`)
 
-  redirect(`/attendance/qr?token=${data.token}&event_date=${eventDate}&event_title=${encodeURIComponent(eventTitle)}&expires_at=${encodeURIComponent(expiresAt)}`)
+  redirect(`/attendance/qr?token=${data.token}&event_date=${eventDate}&event_title=${encodeURIComponent(eventTitle)}&expires_at=${encodeURIComponent(expiresAt)}&expires_minutes=${minutes}`)
 }
 
 export async function deactivateQrToken(formData: FormData) {

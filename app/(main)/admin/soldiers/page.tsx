@@ -124,15 +124,15 @@ export default async function AdminSoldiersPage() {
               const isImminent = dday.status === 'imminent' || dday.status === 'today'
 
               return (
+                <div key={soldier.id} style={{ position: 'relative' }}>
                 <Link
-                  key={soldier.id}
                   href={`/admin/users/${soldier.id}`}
                   style={{
                     display: 'block',
                     background: '#fff',
                     border: `1.5px solid ${isImminent ? 'var(--danger)' : 'var(--border)'}`,
                     borderRadius: 'var(--r-lg)',
-                    padding: '14px 16px',
+                    padding: '14px 16px 38px',
                     textDecoration: 'none',
                   }}
                 >
@@ -195,6 +195,21 @@ export default async function AdminSoldiersPage() {
                     )}
                   </div>
                 </Link>
+                {/* 케어 노트 버튼 */}
+                <Link
+                  href={`/admin/soldiers/care-notes/${soldier.id}`}
+                  style={{
+                    position: 'absolute', bottom: 10, right: 10,
+                    fontSize: 11, fontWeight: 700,
+                    padding: '4px 10px', borderRadius: 'var(--r-pill)',
+                    background: 'var(--primary-soft)', color: 'var(--primary-dark)',
+                    border: '1px solid var(--primary-border)',
+                    textDecoration: 'none',
+                  }}
+                >
+                  📝 케어 노트
+                </Link>
+                </div>
               )
             })}
           </div>

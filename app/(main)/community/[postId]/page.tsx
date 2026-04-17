@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import type { CSSProperties } from 'react'
+import ImageLightbox from '@/components/common/ImageLightbox'
+import DeletePostButton from '@/components/common/DeletePostButton'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { addComment, deletePost } from '../actions'
+import { addComment } from '../actions'
 
 type Post = {
   id: string
@@ -11,6 +13,7 @@ type Post = {
   content: string
   category: 'notice' | 'free' | 'prayer' | 'soldier'
   is_notice: boolean | null
+  image_urls: string[] | null
   created_at: string
 }
 
@@ -125,7 +128,7 @@ export default async function CommunityPostDetailPage({
 
   const { data: postData } = await supabase
     .from('posts')
-    .select('id, author_id, title, content, category, is_notice, created_at')
+    .select('id, author_id, title, content, category, is_notice, image_urls, created_at')
     .eq('id', postId)
     .maybeSingle()
 
@@ -317,6 +320,11 @@ export default async function CommunityPostDetailPage({
           {post.content}
         </div>
 
+        {/* 이미지 */}
+        {post.image_urls && post.image_urls.length > 0 && (
+          <ImageLightbox urls={post.image_urls} />
+        )}
+
         {canManage ? (
           <div
             className="button-row"
@@ -328,12 +336,7 @@ export default async function CommunityPostDetailPage({
               수정하기
             </Link>
 
-            <form action={deletePost} style={{ flex: 1 }}>
-              <input type="hidden" name="post_id" value={post.id} />
-              <button type="submit" className="button danger">
-                삭제하기
-              </button>
-            </form>
+            <DeletePostButton postId={post.id} />
           </div>
         ) : null}
       </section>

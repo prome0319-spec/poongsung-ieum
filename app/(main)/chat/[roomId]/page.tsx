@@ -1,19 +1,14 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import MarkRoomRead from '../MarkRoomRead'
+import ChatRoom from './ChatRoom'
 
 type Audience = 'all' | 'soldier' | 'general'
 type RoomType = 'group' | 'announcement'
 
 type PageProps = {
-  params: Promise<{
-    roomId: string
-  }>
-  searchParams: Promise<{
-    error?: string
-  }>
+  params: Promise<{ roomId: string }>
 }
 
 type ProfileRow = {
@@ -44,26 +39,6 @@ type ChatMessageRow = {
   created_at: string | null
 }
 
-function formatDateTime(value: string | null) {
-  if (!value) return '없음'
-
-  return new Intl.DateTimeFormat('ko-KR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
-}
-
-function getAudienceLabel(audience: Audience) {
-  if (audience === 'soldier') return '군지음이 전용'
-  if (audience === 'general') return '지음이 전용'
-  return '전체 공개'
-}
-
-function getRoomTypeLabel(roomType: RoomType | null, isAnnouncement: boolean | null) {
-  if (roomType === 'announcement' || isAnnouncement) return '공지형'
-  return '일반형'
-}
-
 function canAccessRoom(systemRole: string | null, isSoldier: boolean | null, audience: Audience) {
   if (systemRole === 'admin' || systemRole === 'pastor') return true
   if (audience === 'all') return true
@@ -72,21 +47,18 @@ function canAccessRoom(systemRole: string | null, isSoldier: boolean | null, aud
   return false
 }
 
-export default async function ChatRoomDetailPage({
-  params,
-  searchParams,
-}: PageProps) {
+function getAudienceLabel(audience: Audience) {
+  if (audience === 'soldier') return '군지음이 전용'
+  if (audience === 'general') return '지음이 전용'
+  return '전체 공개'
+}
+
+export default async function ChatRoomDetailPage({ params }: PageProps) {
   const { roomId } = await params
-  const qs = await searchParams
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login')
-  }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
   const { data: myProfile } = await supabase
     .from('profiles')
@@ -94,9 +66,7 @@ export default async function ChatRoomDetailPage({
     .eq('id', user.id)
     .single<ProfileRow>()
 
-  if (!myProfile) {
-    redirect('/login')
-  }
+  if (!myProfile) redirect('/login')
 
   const { data: room, error: roomError } = await supabase
     .from('chat_rooms')
@@ -104,9 +74,7 @@ export default async function ChatRoomDetailPage({
     .eq('id', roomId)
     .single<ChatRoomRow>()
 
-  if (roomError || !room) {
-    notFound()
-  }
+  if (roomError || !room) notFound()
 
   if (!canAccessRoom(myProfile.system_role, myProfile.is_soldier, room.audience)) {
     redirect('/chat')
@@ -117,286 +85,77 @@ export default async function ChatRoomDetailPage({
     .select('id, room_id, sender_id, sender_name, sender_user_type, content, created_at')
     .eq('room_id', room.id)
     .order('created_at', { ascending: true })
+    .limit(200)
 
   const messageRows = (messages ?? []) as ChatMessageRow[]
 
-  const isAdmin = myProfile.system_role === 'admin' || myProfile.system_role === 'pastor'
-  const isAnnouncementRoom =
-    room.room_type === 'announcement' || room.is_announcement === true
-  const canWriteMessage = isAdmin || !isAnnouncementRoom
+  const senderIds = Array.from(new Set(messageRows.map((m) => m.sender_id)))
+  let senderProfiles: Record<string, { avatarUrl: string | null; isSoldier: boolean }> = {}
 
-  async function sendMessage(formData: FormData) {
-    'use server'
-
-    const targetRoomId = String(formData.get('roomId') ?? '').trim()
-    const content = String(formData.get('content') ?? '').trim()
-
-    if (!targetRoomId) {
-      redirect('/chat')
-    }
-
-    if (!content) {
-      redirect(`/chat/${targetRoomId}?error=${encodeURIComponent('메시지를 입력해주세요.')}`)
-    }
-
-    const supabase = await createClient()
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      redirect('/login')
-    }
-
-    const { data: senderProfile } = await supabase
+  if (senderIds.length > 0) {
+    const { data: profileData } = await supabase
       .from('profiles')
-      .select('id, name, nickname, system_role, is_soldier')
-      .eq('id', user.id)
-      .single<ProfileRow>()
-
-    if (!senderProfile) {
-      redirect('/login')
+      .select('id, avatar_url, is_soldier')
+      .in('id', senderIds)
+    for (const p of profileData ?? []) {
+      senderProfiles[p.id] = { avatarUrl: p.avatar_url ?? null, isSoldier: !!p.is_soldier }
     }
-
-    const { data: targetRoom } = await supabase
-      .from('chat_rooms')
-      .select('id, audience, room_type, is_announcement')
-      .eq('id', targetRoomId)
-      .single<ChatRoomRow>()
-
-    if (!targetRoom) {
-      redirect('/chat')
-    }
-
-    if (!canAccessRoom(senderProfile.system_role, senderProfile.is_soldier, targetRoom.audience)) {
-      redirect('/chat')
-    }
-
-    const targetIsAnnouncement =
-      targetRoom.room_type === 'announcement' || targetRoom.is_announcement === true
-
-    if (targetIsAnnouncement && senderProfile.system_role !== 'admin' && senderProfile.system_role !== 'pastor') {
-      redirect(
-        `/chat/${targetRoomId}?error=${encodeURIComponent(
-          '공지형 채팅방은 관리자만 작성할 수 있습니다.'
-        )}`
-      )
-    }
-
-    const senderName =
-      senderProfile.name?.trim() ||
-      senderProfile.nickname?.trim() ||
-      '이름없음'
-
-    const senderUserType =
-      senderProfile.system_role === 'admin' ? 'admin' : senderProfile.is_soldier ? 'soldier' : 'general'
-
-    const { error } = await supabase.from('chat_messages').insert({
-      room_id: targetRoomId,
-      sender_id: senderProfile.id,
-      sender_name: senderName,
-      sender_user_type: senderUserType,
-      content,
-    })
-
-    if (error) {
-      redirect(
-        `/chat/${targetRoomId}?error=${encodeURIComponent(
-          `메시지 전송 실패: ${error.message}`
-        )}`
-      )
-    }
-
-    revalidatePath(`/chat/${targetRoomId}`)
-    redirect(`/chat/${targetRoomId}`)
   }
 
+  const isAdmin = myProfile.system_role === 'admin' || myProfile.system_role === 'pastor'
+  const isAnnouncementRoom = room.room_type === 'announcement' || room.is_announcement === true
+  const myDisplayName = (myProfile.nickname || myProfile.name || '이름없음').trim()
+  const myUserType = myProfile.system_role === 'admin' ? 'admin'
+    : myProfile.system_role === 'pastor' ? 'pastor'
+    : myProfile.is_soldier ? 'soldier' : 'general'
+
   return (
-    <main style={{ padding: 24, display: 'grid', gap: 20 }}>
+    <main style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', paddingBottom: 64 }}>
       <MarkRoomRead roomId={roomId} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ marginBottom: 8 }}>
-            <Link href="/chat">← 채팅 목록으로</Link>
+
+      {/* 헤더 */}
+      <div style={{
+        padding: '12px 16px',
+        borderBottom: '1px solid var(--border)',
+        background: '#fff',
+        display: 'flex', alignItems: 'center', gap: 12,
+        flexShrink: 0,
+      }}>
+        <Link
+          href="/chat"
+          style={{
+            width: 36, height: 36, borderRadius: '50%',
+            background: 'var(--bg-section)',
+            border: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 18, textDecoration: 'none', color: 'var(--text)',
+            flexShrink: 0,
+          }}
+        >
+          ←
+        </Link>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {room.title}
           </div>
-          <h1 style={{ margin: 0 }}>{room.title}</h1>
-          <p style={{ marginTop: 8, color: '#666' }}>
-            {room.description || '채팅방 설명이 없습니다.'}
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'start' }}>
-          <span
-            style={{
-              padding: '6px 10px',
-              borderRadius: 999,
-              background: '#f3f4f6',
-              fontSize: 13,
-            }}
-          >
+          <div style={{ fontSize: 11, color: 'var(--text-soft)', marginTop: 1 }}>
             {getAudienceLabel(room.audience)}
-          </span>
-
-          <span
-            style={{
-              padding: '6px 10px',
-              borderRadius: 999,
-              background: isAnnouncementRoom ? '#fef3c7' : '#eff6ff',
-              fontSize: 13,
-            }}
-          >
-            {getRoomTypeLabel(room.room_type, room.is_announcement)}
-          </span>
+            {isAnnouncementRoom && ' · 공지형'}
+          </div>
         </div>
       </div>
 
-      <section
-        className="card"
-        style={{
-          padding: 14,
-          border: '1px solid #e5e7eb',
-          borderRadius: 12,
-          background: '#fafafa',
-        }}
-      >
-        <div style={{ fontSize: 14, color: '#666' }}>
-          생성일: {formatDateTime(room.created_at)}
-        </div>
-      </section>
-
-      {qs.error ? (
-        <section
-          className="card"
-          style={{
-            padding: 14,
-            border: '1px solid #fecaca',
-            borderRadius: 12,
-            background: '#fef2f2',
-            color: '#991b1b',
-          }}
-        >
-          {qs.error}
-        </section>
-      ) : null}
-
-      {isAnnouncementRoom && !isAdmin ? (
-        <section
-          className="card"
-          style={{
-            padding: 14,
-            border: '1px solid #fde68a',
-            borderRadius: 12,
-            background: '#fffbeb',
-            color: '#92400e',
-          }}
-        >
-          이 채팅방은 공지형 채팅방입니다. 일반 사용자는 읽기만 가능하고, 관리자만 메시지를 작성할 수 있습니다.
-        </section>
-      ) : null}
-
-      <section
-        className="card"
-        style={{
-          padding: 18,
-          border: '1px solid #e5e7eb',
-          borderRadius: 12,
-          display: 'grid',
-          gap: 12,
-          minHeight: 360,
-          alignContent: 'start',
-        }}
-      >
-        <strong>메시지</strong>
-
-        {messageRows.length === 0 ? (
-          <div style={{ color: '#666' }}>아직 메시지가 없습니다.</div>
-        ) : (
-          messageRows.map((message) => {
-            const isMine = message.sender_id === myProfile.id
-
-            return (
-              <div
-                key={message.id}
-                style={{
-                  display: 'flex',
-                  justifyContent: isMine ? 'flex-end' : 'flex-start',
-                }}
-              >
-                <div
-                  style={{
-                    maxWidth: 520,
-                    width: 'fit-content',
-                    padding: 12,
-                    borderRadius: 14,
-                    background: isMine ? '#e0f2fe' : '#f3f4f6',
-                    border: '1px solid #e5e7eb',
-                  }}
-                >
-                  <div style={{ fontSize: 13, color: '#666' }}>
-                    {message.sender_name || '이름없음'} · {message.sender_user_type || 'user'}
-                  </div>
-                  <div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>
-                    {message.content}
-                  </div>
-                  <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
-                    {formatDateTime(message.created_at)}
-                  </div>
-                </div>
-              </div>
-            )
-          })
-        )}
-      </section>
-
-      {canWriteMessage ? (
-        <section
-          className="card"
-          style={{
-            padding: 18,
-            border: '1px solid #e5e7eb',
-            borderRadius: 12,
-            display: 'grid',
-            gap: 12,
-          }}
-        >
-          <strong>메시지 보내기</strong>
-
-          <form action={sendMessage} style={{ display: 'grid', gap: 12 }}>
-            <input type="hidden" name="roomId" value={room.id} />
-            <textarea
-              name="content"
-              rows={4}
-              placeholder="메시지를 입력하세요"
-              style={{
-                width: '100%',
-                padding: 12,
-                borderRadius: 10,
-                border: '1px solid #d1d5db',
-                resize: 'vertical',
-              }}
-            />
-            <div>
-              <button type="submit" style={{ padding: '10px 14px' }}>
-                전송
-              </button>
-            </div>
-          </form>
-        </section>
-      ) : (
-        <section
-          className="card"
-          style={{
-            padding: 18,
-            border: '1px solid #e5e7eb',
-            borderRadius: 12,
-            background: '#fafafa',
-            color: '#666',
-          }}
-        >
-          이 방은 입력이 비활성화된 상태입니다.
-        </section>
-      )}
+      {/* 채팅 영역 (실시간) */}
+      <ChatRoom
+        roomId={roomId}
+        myUserId={user.id}
+        myDisplayName={myDisplayName}
+        myUserType={myUserType}
+        isAnnouncementRoom={isAnnouncementRoom}
+        isAdmin={isAdmin}
+        initialMessages={messageRows}
+        senderProfiles={senderProfiles}
+      />
     </main>
   )
 }

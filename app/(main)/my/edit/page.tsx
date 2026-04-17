@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { updateMyProfile } from '../actions'
+import { updateMyProfile, uploadAvatar } from '../actions'
 import DatePicker from '@/components/common/DatePicker'
+import AvatarUpload from '@/components/common/AvatarUpload'
 
 type PageProps = {
   searchParams: Promise<{ message?: string }>
@@ -21,6 +22,7 @@ type ProfileRow = {
   discharge_date: string | null
   military_unit: string | null
   onboarding_completed: boolean
+  avatar_url: string | null
 }
 
 export default async function MyEditPage({ searchParams }: PageProps) {
@@ -32,7 +34,7 @@ export default async function MyEditPage({ searchParams }: PageProps) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, email, name, nickname, system_role, is_soldier, bio, birth_date, enlistment_date, discharge_date, military_unit, onboarding_completed')
+    .select('id, email, name, nickname, system_role, is_soldier, bio, birth_date, enlistment_date, discharge_date, military_unit, onboarding_completed, avatar_url')
     .eq('id', user.id)
     .single()
 
@@ -98,6 +100,30 @@ export default async function MyEditPage({ searchParams }: PageProps) {
           {message}
         </div>
       )}
+
+      {/* ── 프로필 사진 ── */}
+      <div
+        style={{
+          background: 'white',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-md)',
+          overflow: 'hidden',
+          marginBottom: '16px',
+        }}
+      >
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
+          <h2 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            프로필 사진
+          </h2>
+        </div>
+        <div style={{ padding: '20px 18px' }}>
+          <AvatarUpload
+            currentUrl={profile.avatar_url ?? null}
+            isSoldier={profile.is_soldier}
+            action={uploadAvatar}
+          />
+        </div>
+      </div>
 
       <form className="stack" action={updateMyProfile} style={{ gap: '16px' }}>
 

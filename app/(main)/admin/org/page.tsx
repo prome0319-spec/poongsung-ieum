@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { loadUserContext } from '@/lib/utils/user-context'
 import { canManageOrg } from '@/lib/utils/permissions'
+import DatePicker from '@/components/common/DatePicker'
 import {
   upsertTeam, deleteTeam,
   addTeamMember, removeTeamMember, updateTeamMemberRole,
@@ -224,7 +225,7 @@ export default async function AdminOrgPage({ searchParams }: PageProps) {
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>시작일</label>
-                  <input name="started_at" type="date" className="input" defaultValue={new Date().toISOString().slice(0, 10)} style={{ padding: '9px 12px' }} />
+                  <DatePicker name="started_at" defaultValue={new Date().toISOString().slice(0, 10)} />
                 </div>
               </div>
               <button type="submit" className="button" style={{ alignSelf: 'start', padding: '10px 20px', width: 'auto' }}>등록</button>

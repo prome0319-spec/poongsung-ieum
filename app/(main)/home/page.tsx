@@ -18,6 +18,14 @@ type Profile = {
   enlistment_date: string | null
   discharge_date: string | null
   onboarding_completed: boolean | null
+  avatar_url: string | null
+}
+
+type BirthdayMember = {
+  id: string
+  name: string | null
+  nickname: string | null
+  birth_date: string
 }
 
 type SchedulePreview = {
@@ -184,7 +192,7 @@ export default async function HomePage() {
   const { data: profileData } = await supabase
     .from('profiles')
     .select(
-      'id, name, nickname, system_role, is_soldier, bio, military_unit, enlistment_date, discharge_date, pm_group_id, onboarding_completed'
+      'id, name, nickname, system_role, is_soldier, bio, military_unit, enlistment_date, discharge_date, pm_group_id, onboarding_completed, avatar_url'
     )
     .eq('id', user.id)
     .single()
@@ -260,6 +268,23 @@ export default async function HomePage() {
     .sort((a, b) => new Date(b.sortBase).getTime() - new Date(a.sortBase).getTime())
     .slice(0, 3)
 
+  // 오늘 생일 멤버
+  const todayMMDD = new Date().toISOString().slice(5, 10) // "MM-DD"
+  const { data: birthdayData } = await supabase
+    .from('profiles')
+    .select('id, name, nickname, birth_date')
+    .not('birth_date', 'is', null)
+    .like('birth_date', `%-${todayMMDD}`)
+
+  const todayBirthdays = (birthdayData ?? []) as BirthdayMember[]
+
+  // 읽지 않은 알림 수
+  const { count: unreadNotifCount } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('is_read', false)
+
   // 홈 공지 팝업
   const nowIso2 = new Date().toISOString()
   const userAudience = profile.is_soldier ? 'soldier' : 'general'
@@ -283,7 +308,7 @@ export default async function HomePage() {
   const showAttendance =
     isAdminOrPastor(profile.system_role) ||
     !!profile.pm_group_id
-  const avatarSrc = isSoldier ? '/avatar-soldier.svg' : '/avatar-default.svg'
+  const avatarSrc = profile?.avatar_url ?? (isSoldier ? '/avatar-soldier.svg' : '/avatar-default.svg')
   const heroBanner = isSoldier ? '/hero-military.svg' : '/hero-church.svg'
 
   return (
@@ -319,6 +344,39 @@ export default async function HomePage() {
 
       <div className="stack" style={{ padding: '0 16px', gap: '16px' }}>
 
+        {/* ── 검색 바 ── */}
+        <form method="GET" action="/search">
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 0,
+            background: '#fff',
+            border: '1.5px solid var(--border-strong)',
+            borderRadius: 'var(--r-lg)',
+            overflow: 'hidden',
+            boxShadow: 'var(--shadow-xs)',
+          }}>
+            <span style={{ padding: '0 12px 0 16px', fontSize: 18, flexShrink: 0, color: 'var(--text-muted)' }}>🔍</span>
+            <input
+              name="q"
+              type="search"
+              placeholder="게시글, 일정 검색..."
+              style={{
+                flex: 1, border: 'none', outline: 'none',
+                fontSize: 14.5, padding: '13px 0',
+                background: 'transparent', color: 'var(--text)',
+                fontFamily: 'inherit',
+              }}
+            />
+            <button type="submit" style={{
+              padding: '0 16px', height: 48, border: 'none',
+              background: 'var(--primary)', color: '#fff',
+              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              flexShrink: 0,
+            }}>
+              검색
+            </button>
+          </div>
+        </form>
+
         {/* ── 프로필 카드 ── */}
         <div
           className="card"
@@ -340,6 +398,7 @@ export default async function HomePage() {
                 width={64}
                 height={64}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                unoptimized={!!profile?.avatar_url}
               />
             </div>
             <span className="avatar-badge" />
@@ -482,6 +541,69 @@ export default async function HomePage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── 읽지 않은 알림 ── */}
+        {(unreadNotifCount ?? 0) > 0 && (
+          <Link
+            href="/notifications"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '14px 16px',
+              background: 'var(--primary-softer)',
+              border: '1.5px solid var(--primary-border)',
+              borderRadius: 'var(--r-lg)',
+              textDecoration: 'none',
+              boxShadow: 'var(--shadow-xs)',
+            }}
+          >
+            <div style={{
+              width: 40, height: 40, borderRadius: 'var(--r-sm)',
+              background: 'var(--primary)', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18, flexShrink: 0,
+            }}>🔔</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--primary-dark)' }}>
+                읽지 않은 알림 {unreadNotifCount}개
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--primary)', marginTop: 1 }}>
+                탭하여 확인하기
+              </div>
+            </div>
+            <span style={{ color: 'var(--primary)', fontSize: 18 }}>›</span>
+          </Link>
+        )}
+
+        {/* ── 오늘 생일 ── */}
+        {todayBirthdays.length > 0 && (
+          <div style={{
+            padding: '14px 16px',
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+            border: '1.5px solid #fde68a',
+            borderRadius: 'var(--r-lg)',
+            boxShadow: '0 2px 8px rgba(251,191,36,0.15)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 20 }}>🎂</span>
+              <span style={{ fontWeight: 800, fontSize: 14, color: '#92400e' }}>오늘 생일인 멤버</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {todayBirthdays.map((m) => (
+                <span
+                  key={m.id}
+                  style={{
+                    padding: '4px 12px', borderRadius: 'var(--r-pill)',
+                    background: 'rgba(255,255,255,0.7)',
+                    border: '1px solid #fbbf24',
+                    fontSize: 13, fontWeight: 700, color: '#78350f',
+                  }}
+                >
+                  {(m.nickname || m.name || '이름없음').trim()} 🎉
+                </span>
+              ))}
+            </div>
           </div>
         )}
 

@@ -43,6 +43,7 @@ function getPartnerLabel(systemRole: string | null | undefined, isSoldier: boole
 }
 
 function getRoomEmoji(room: ChatRoom) {
+  if (room.room_type === 'direct') return '👤'
   if (room.is_announcement) return '📢'
   if (room.audience === 'soldier') return '🎖️'
   if (room.audience === 'general') return '✝️'
@@ -50,6 +51,7 @@ function getRoomEmoji(room: ChatRoom) {
 }
 
 function getRoomIconBg(room: ChatRoom) {
+  if (room.room_type === 'direct') return { background: '#f5f3ff', border: '1.5px solid #e9d5ff' }
   if (room.is_announcement) return { background: '#fff7ed', border: '1.5px solid #fed7aa' }
   if (room.audience === 'soldier') return { background: 'var(--military-soft)', border: '1.5px solid var(--military-soft-border)' }
   return { background: 'var(--kakao-soft)', border: '1.5px solid var(--kakao-border)' }

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { sendPushToUsers } from '@/lib/push'
 import type { ChatAudience, ChatRoomType } from '@/types/chat'
 
 function go(path: string, message: string) {
@@ -97,6 +98,34 @@ export async function sendChatMessage(formData: FormData) {
     return
   }
 
+  // 채팅방 멤버(본인 제외)에게 알림 전송 (group / direct 모두)
+  if (roomType === 'group' || roomType === 'direct') {
+    const { data: members } = await supabase
+      .from('chat_room_members')
+      .select('user_id')
+      .eq('room_id', roomId)
+      .neq('user_id', user.id)
+
+    if (members && members.length > 0) {
+      const preview = content.length > 40 ? content.slice(0, 40) + '…' : content
+      const title = roomType === 'direct'
+        ? `${senderName}님이 메시지를 보냈어요`
+        : `${senderName}님의 새 메시지`
+      await supabase.from('notifications').insert(
+        members.map((m) => ({
+          user_id: m.user_id,
+          type: 'chat_message',
+          title,
+          body: preview,
+          link_url: `/chat/${roomId}`,
+        }))
+      )
+      // 웹 푸시 전송
+      const memberIds = members.map((m) => m.user_id)
+      sendPushToUsers(memberIds, { title, body: preview, url: `/chat/${roomId}` }).catch(() => {})
+    }
+  }
+
   revalidatePath('/chat')
   revalidatePath(`/chat/${roomId}`)
 }
@@ -187,7 +216,7 @@ export async function createOrOpenDirectRoom(formData: FormData) {
       audience: 'all',
       sort_order: 0,
       created_by: user.id,
-      room_type: 'group',
+      room_type: 'direct',
       is_announcement: false,
     })
     .select('id')

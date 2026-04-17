@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { canManageSchedule, canDeleteSchedule } from '@/lib/utils/permissions'
 import type { SystemRole } from '@/types/user'
 import { createSchedule, bulkCreateSchedules, deleteSchedule } from '@/app/(main)/calendar/actions'
+import DatePicker from '@/components/common/DatePicker'
+import DateTimePicker from '@/components/common/DateTimePicker'
 
 type ScheduleCategory = 'worship' | 'meeting' | 'event' | 'service' | 'general'
 type Audience = 'all' | 'soldier' | 'general'
@@ -133,10 +135,10 @@ export default async function AdminCalendarPage({
               </select>
             </FormField>
             <FormField label="시작 일시 *">
-              <input name="start_at" type="datetime-local" required style={INPUT_STYLE} />
+              <DateTimePicker name="start_at" required placeholder="시작 날짜/시간" />
             </FormField>
             <FormField label="종료 일시 *">
-              <input name="end_at" type="datetime-local" required style={INPUT_STYLE} />
+              <DateTimePicker name="end_at" required placeholder="종료 날짜/시간" />
             </FormField>
           </div>
 
@@ -193,10 +195,10 @@ export default async function AdminCalendarPage({
 
           <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
             <FormField label="시작일 (첫 번째 일정) *">
-              <input name="start_date" type="date" required style={INPUT_STYLE} />
+              <DatePicker name="start_date" required placeholder="시작일 선택" />
             </FormField>
             <FormField label="종료일 (마지막 기준일) *">
-              <input name="end_date" type="date" required style={INPUT_STYLE} />
+              <DatePicker name="end_date" required placeholder="종료일 선택" />
             </FormField>
             <FormField label="시작 시각 *">
               <input name="start_time" type="time" required defaultValue="11:00" style={INPUT_STYLE} />

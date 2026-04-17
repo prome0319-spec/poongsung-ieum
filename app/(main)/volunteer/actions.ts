@@ -45,6 +45,41 @@ export async function signupVolunteer(formData: FormData) {
 
   if (error?.code === '23505') goWithMessage('/volunteer', '이미 신청한 봉사입니다.')
   if (error) goWithMessage('/volunteer', `신청 실패: ${error.message}`)
+
+  // 봉사 일정 정보 조회
+  const { data: duty } = await supabase
+    .from('volunteer_duties')
+    .select('title, duty_date')
+    .eq('id', dutyId)
+    .maybeSingle()
+
+  // 신청자 이름 조회
+  const { data: me } = await supabase
+    .from('profiles')
+    .select('name, nickname')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  // 관리자/목사에게 봉사 신청 알림
+  const { data: admins } = await supabase
+    .from('profiles')
+    .select('id')
+    .in('system_role', ['admin', 'pastor'])
+    .neq('id', user.id)
+
+  if (admins && admins.length > 0 && duty) {
+    const displayName = (me?.nickname || me?.name || '멤버').trim()
+    await supabase.from('notifications').insert(
+      admins.map((a) => ({
+        user_id: a.id,
+        type: 'notice',
+        title: `봉사 신청: ${duty.title}`,
+        body: `${displayName}님이 봉사 신청했습니다.`,
+        link_url: `/admin/volunteer/${dutyId}`,
+      }))
+    )
+  }
+
   revalidatePath('/volunteer')
   goWithMessage('/volunteer', '봉사 신청이 완료되었습니다.')
 }

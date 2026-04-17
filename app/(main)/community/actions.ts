@@ -66,6 +66,24 @@ async function getCurrentUserProfile() {
   }
 }
 
+async function uploadPostImages(supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>, userId: string, formData: FormData): Promise<string[]> {
+  const files = formData.getAll('images') as File[]
+  const urls: string[] = []
+
+  for (const file of files) {
+    if (!file || file.size === 0 || urls.length >= 3) continue
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+    const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    const { error } = await supabase.storage.from('post-images').upload(path, file, { contentType: file.type })
+    if (!error) {
+      const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(path)
+      urls.push(urlData.publicUrl)
+    }
+  }
+
+  return urls
+}
+
 export async function createPost(formData: FormData) {
   const { supabase, user, systemRole, isSoldier } = await getCurrentUserProfile()
 
@@ -79,12 +97,15 @@ export async function createPost(formData: FormData) {
     redirect('/community/write?error=title_or_content_required')
   }
 
+  const imageUrls = await uploadPostImages(supabase, user.id, formData)
+
   const insertData = {
     author_id: user.id,
     title,
     content,
     category,
     is_notice: canWriteNotice(systemRole) ? noticeChecked : false,
+    image_urls: imageUrls,
   }
 
   const { data, error } = await supabase
@@ -129,6 +150,24 @@ export async function addComment(formData: FormData) {
     redirect(`/community/${postId}?error=comment_create_failed`)
   }
 
+  // 게시글 작성자(본인 제외)에게 댓글 알림
+  const { data: post } = await supabase
+    .from('posts')
+    .select('author_id, title')
+    .eq('id', postId)
+    .maybeSingle()
+
+  if (post && post.author_id !== user.id) {
+    const preview = content.length > 50 ? content.slice(0, 50) + '…' : content
+    await supabase.from('notifications').insert({
+      user_id: post.author_id,
+      type: 'post_comment',
+      title: `내 게시글에 새 댓글이 달렸어요`,
+      body: preview,
+      link_url: `/community/${postId}`,
+    })
+  }
+
   revalidatePath('/community')
   revalidatePath(`/community/${postId}`)
 
@@ -169,11 +208,17 @@ export async function updatePost(formData: FormData) {
     redirect(`/community/${postId}?error=no_permission`)
   }
 
+  // 기존 유지 이미지 + 새 이미지
+  const keptUrls = formData.getAll('kept_image_urls').map((v) => String(v)).filter(Boolean)
+  const newUrls = await uploadPostImages(supabase, user.id, formData)
+  const imageUrls = [...keptUrls, ...newUrls].slice(0, 3)
+
   const updateData = {
     title,
     content,
     category,
     is_notice: canWriteNotice(systemRole) ? noticeChecked : false,
+    image_urls: imageUrls,
   }
 
   const { error } = await supabase

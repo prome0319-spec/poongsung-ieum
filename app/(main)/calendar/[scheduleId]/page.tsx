@@ -59,6 +59,16 @@ function getAudienceLabel(audience: Audience) {
   }
 }
 
+function getCategoryTheme(category: ScheduleCategory) {
+  switch (category) {
+    case 'worship':  return { softBg: '#eef2ff', text: '#4338ca', border: '#c7d2fe' }
+    case 'meeting':  return { softBg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' }
+    case 'event':    return { softBg: '#fdf2f8', text: '#be185d', border: '#fbcfe8' }
+    case 'service':  return { softBg: '#ecfdf5', text: '#047857', border: '#a7f3d0' }
+    default:         return { softBg: '#f3f4f6', text: '#374151', border: '#e5e7eb' }
+  }
+}
+
 export default async function CalendarDetailPage({
   params,
 }: {
@@ -109,200 +119,153 @@ export default async function CalendarDetailPage({
     notFound()
   }
 
+  const categoryTheme = getCategoryTheme(schedule.category)
+
   return (
-    <div
-      style={{
-        display: 'grid',
-        gap: 16,
-        paddingBottom: 88,
-      }}
-    >
+    <div style={{ display: 'grid', gap: 16, paddingBottom: 88 }}>
+      {/* 헤더 배너 */}
       <section
         style={{
-          border: '1px solid #e5e7eb',
-          borderRadius: 16,
-          background: '#fff',
-          padding: 16,
-          display: 'grid',
-          gap: 14,
+          position: 'relative',
+          overflow: 'hidden',
+          borderRadius: 'var(--r-xl)',
+          padding: '20px 20px 22px',
+          background: `linear-gradient(135deg, ${categoryTheme.text}ee 0%, ${categoryTheme.text}bb 100%)`,
+          color: '#fff',
+          boxShadow: 'var(--shadow-md)',
         }}
       >
-        <div
+        <div style={{
+          position: 'absolute', right: -30, top: -30,
+          width: 140, height: 140, borderRadius: '50%',
+          background: 'rgba(255,255,255,0.1)',
+        }} />
+
+        {/* 뒤로가기 */}
+        <Link
+          href="/calendar"
           style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            gap: 12,
-            flexWrap: 'wrap',
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.85)',
+            marginBottom: 14, textDecoration: 'none',
           }}
         >
-          <div>
-            <div
-              style={{
-                display: 'flex',
-                gap: 8,
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                marginBottom: 10,
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 12,
-                  padding: '4px 8px',
-                  borderRadius: 999,
-                  background: '#f3f4f6',
-                }}
-              >
-                {getCategoryLabel(schedule.category)}
-              </span>
+          ← 캘린더로
+        </Link>
 
-              <span
-                style={{
-                  fontSize: 12,
-                  padding: '4px 8px',
-                  borderRadius: 999,
-                  background: '#f9fafb',
-                  color: '#6b7280',
-                }}
-              >
-                {getAudienceLabel(schedule.audience)}
-              </span>
-            </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          <span style={{
+            fontSize: 12, fontWeight: 700, padding: '4px 10px',
+            borderRadius: 'var(--r-pill)',
+            background: 'rgba(255,255,255,0.22)', color: '#fff',
+          }}>
+            {getCategoryLabel(schedule.category)}
+          </span>
+          <span style={{
+            fontSize: 12, fontWeight: 700, padding: '4px 10px',
+            borderRadius: 'var(--r-pill)',
+            background: 'rgba(255,255,255,0.14)', color: 'rgba(255,255,255,0.9)',
+          }}>
+            {getAudienceLabel(schedule.audience)}
+          </span>
+        </div>
 
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 24,
-                lineHeight: 1.4,
-              }}
-            >
-              {schedule.title}
-            </h1>
-          </div>
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 900, lineHeight: 1.3, color: '#fff' }}>
+          {schedule.title}
+        </h1>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {isAdminOrPastorUser && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
             <Link
-              href="/calendar"
+              href={`/admin/calendar/${schedule.id}/edit`}
               style={{
-                textDecoration: 'none',
-                padding: '10px 14px',
-                borderRadius: 10,
-                border: '1px solid #d1d5db',
-                color: '#111827',
-                fontWeight: 600,
+                textDecoration: 'none', padding: '9px 16px',
+                borderRadius: 'var(--r-sm)',
+                background: 'rgba(255,255,255,0.22)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                color: '#fff', fontWeight: 700, fontSize: 14,
               }}
             >
-              목록으로
+              수정
             </Link>
-
-            {isAdminOrPastorUser && (
-              <>
-                <Link
-                  href={`/admin/calendar/${schedule.id}/edit`}
-                  style={{
-                    textDecoration: 'none',
-                    padding: '10px 14px',
-                    borderRadius: 10,
-                    background: '#111827',
-                    color: '#fff',
-                    fontWeight: 700,
-                  }}
-                >
-                  일정 수정
-                </Link>
-                <form action={deleteSchedule}>
-                  <input type="hidden" name="schedule_id" value={schedule.id} />
-                  <button
-                    type="submit"
-                    style={{
-                      padding: '10px 14px',
-                      borderRadius: 10,
-                      border: '1.5px solid #ef4444',
-                      background: '#fff',
-                      color: '#ef4444',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    일정 삭제
-                  </button>
-                </form>
-              </>
-            )}
+            <form action={deleteSchedule} style={{ display: 'inline' }}>
+              <input type="hidden" name="schedule_id" value={schedule.id} />
+              <button
+                type="submit"
+                style={{
+                  padding: '9px 16px', borderRadius: 'var(--r-sm)',
+                  background: 'rgba(239,68,68,0.25)',
+                  border: '1px solid rgba(239,68,68,0.4)',
+                  color: '#fff', fontWeight: 700, fontSize: 14,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                삭제
+              </button>
+            </form>
           </div>
-        </div>
+        )}
+      </section>
 
-        <div
-          style={{
-            display: 'grid',
-            gap: 12,
-            borderTop: '1px solid #f1f5f9',
-            paddingTop: 16,
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: 13,
-                color: '#6b7280',
-                marginBottom: 4,
-              }}
-            >
-              시작
+      {/* 상세 정보 */}
+      <section className="card" style={{ display: 'grid', gap: 0 }}>
+        {[
+          {
+            icon: '🕐',
+            label: '시작',
+            value: formatDateTime(schedule.start_at),
+          },
+          {
+            icon: '🕕',
+            label: '종료',
+            value: formatDateTime(schedule.end_at),
+          },
+          {
+            icon: '📍',
+            label: '장소',
+            value: schedule.location || '장소 정보 없음',
+            muted: !schedule.location,
+          },
+          {
+            icon: '📝',
+            label: '설명',
+            value: schedule.description || '설명 없음',
+            muted: !schedule.description,
+            pre: true,
+          },
+        ].map((row, i, arr) => (
+          <div
+            key={row.label}
+            style={{
+              display: 'flex', gap: 14, padding: '14px 0',
+              borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+              alignItems: 'flex-start',
+            }}
+          >
+            <div style={{
+              width: 36, height: 36, borderRadius: 'var(--r-sm)',
+              background: categoryTheme.softBg,
+              border: `1px solid ${categoryTheme.border}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18, flexShrink: 0,
+            }}>
+              {row.icon}
             </div>
-            <div style={{ fontWeight: 600 }}>{formatDateTime(schedule.start_at)}</div>
-          </div>
-
-          <div>
-            <div
-              style={{
-                fontSize: 13,
-                color: '#6b7280',
-                marginBottom: 4,
-              }}
-            >
-              종료
-            </div>
-            <div style={{ fontWeight: 600 }}>{formatDateTime(schedule.end_at)}</div>
-          </div>
-
-          <div>
-            <div
-              style={{
-                fontSize: 13,
-                color: '#6b7280',
-                marginBottom: 4,
-              }}
-            >
-              장소
-            </div>
-            <div style={{ fontWeight: 600 }}>
-              {schedule.location || '장소 정보 없음'}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 3 }}>
+                {row.label}
+              </div>
+              <div style={{
+                fontSize: 15, fontWeight: 600,
+                color: row.muted ? 'var(--text-soft)' : 'var(--text)',
+                whiteSpace: row.pre ? 'pre-wrap' : undefined,
+                lineHeight: 1.6,
+              }}>
+                {row.value}
+              </div>
             </div>
           </div>
-
-          <div>
-            <div
-              style={{
-                fontSize: 13,
-                color: '#6b7280',
-                marginBottom: 4,
-              }}
-            >
-              설명
-            </div>
-            <div
-              style={{
-                whiteSpace: 'pre-wrap',
-                lineHeight: 1.7,
-                color: '#111827',
-              }}
-            >
-              {schedule.description || '설명 없음'}
-            </div>
-          </div>
-        </div>
+        ))}
       </section>
     </div>
   )

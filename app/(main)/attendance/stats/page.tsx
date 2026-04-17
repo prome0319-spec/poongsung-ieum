@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { loadUserContext } from '@/lib/utils/user-context'
 import { isAdminOrPastor, canViewAttendance } from '@/lib/utils/permissions'
+import AttendanceChart from '@/components/common/AttendanceChart'
 
 type PageProps = {
   searchParams: Promise<{ months?: string }>
@@ -222,9 +223,15 @@ export default async function AttendanceStatsPage({ searchParams }: PageProps) {
         </div>
       )}
 
-      {/* 주별 출석 추이 */}
+      {/* 주별 출석 차트 (SVG) */}
       <div className="card" style={{ padding: '18px', marginBottom: '16px' }}>
-        <h2 style={{ margin: '0 0 14px', fontSize: '15px', fontWeight: 800 }}>주별 출석 현황</h2>
+        <h2 style={{ margin: '0 0 14px', fontSize: '15px', fontWeight: 800 }}>주별 출석 현황 (최근 8주)</h2>
+        <AttendanceChart groupId={isPmLeaderOnly && myPmGroupIds.length > 0 ? myPmGroupIds[0] : null} />
+      </div>
+
+      {/* 주별 출석 테이블 */}
+      <div className="card" style={{ padding: '18px', marginBottom: '16px' }}>
+        <h2 style={{ margin: '0 0 14px', fontSize: '15px', fontWeight: 800 }}>주별 상세</h2>
         <div className="stack" style={{ gap: '8px' }}>
           {weeklyStats.map((w) => (
             <div key={w.date} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

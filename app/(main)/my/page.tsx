@@ -20,6 +20,7 @@ type ProfileRow = {
   discharge_date: string | null
   military_unit: string | null
   onboarding_completed: boolean | null
+  avatar_url: string | null
 }
 
 function formatDate(value: string | null) {
@@ -69,7 +70,7 @@ export default async function MyPage() {
 
   const { data } = await supabase
     .from('profiles')
-    .select('id, email, name, nickname, system_role, is_soldier, pm_group_id, bio, birth_date, enlistment_date, discharge_date, military_unit, onboarding_completed')
+    .select('id, email, name, nickname, system_role, is_soldier, pm_group_id, bio, birth_date, enlistment_date, discharge_date, military_unit, onboarding_completed, avatar_url')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -84,7 +85,7 @@ export default async function MyPage() {
   const showNoticeAdmin = canManageHomeNotice(sysRole)
   const displayName = getDisplayName(profile ?? { name: null, nickname: null })
   const ddayInfo = isSoldier ? getDdayInfo(profile?.discharge_date ?? null) : null
-  const avatarSrc = isSoldier ? '/avatar-soldier.svg' : '/avatar-default.svg'
+  const avatarSrc = profile?.avatar_url ?? (isSoldier ? '/avatar-soldier.svg' : '/avatar-default.svg')
 
   const menuItems: MenuItem[] = [
     { icon: '✏️', label: '프로필 수정', href: '/my/edit', desc: '이름, 닉네임, 소개 변경' },
@@ -94,6 +95,7 @@ export default async function MyPage() {
       { icon: '📣', label: '공지 관리', href: '/admin/notices', desc: '홈 팝업 공지 등록', adminOnly: true },
       { icon: '👥', label: '사용자 관리', href: '/admin/users', desc: '회원 정보 및 역할 관리', adminOnly: true },
       { icon: '📅', label: '일정 관리', href: '/admin/calendar', desc: '일정 등록·수정·삭제', adminOnly: true },
+      { icon: '🎂', label: '생일 관리', href: '/admin/birthdays', desc: '멤버 생일 현황 확인', adminOnly: true },
       { icon: '🤝', label: '상담 관리', href: '/admin/counseling', desc: '멤버 상담 신청 확인', adminOnly: true },
       { icon: '✋', label: '봉사 관리', href: '/admin/volunteer', desc: '봉사 일정 등록', adminOnly: true },
     ] : [
@@ -102,7 +104,7 @@ export default async function MyPage() {
       { icon: '🤝', label: '상담 신청', href: '/counseling', desc: '내 상담 신청 내역' },
       { icon: '✋', label: '봉사 신청', href: '/volunteer', desc: '봉사 일정 확인·신청' },
     ]),
-    { icon: '🔒', label: '로그아웃', action: true, danger: true, desc: '현재 세션 종료' },
+    { icon: '🔒', label: '로그아웃', action: true, danger: true, desc: '로그인 상태를 해제합니다' },
   ]
 
   return (
@@ -145,6 +147,7 @@ export default async function MyPage() {
                 width={88}
                 height={88}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                unoptimized={!!profile?.avatar_url}
               />
             </div>
             <Link

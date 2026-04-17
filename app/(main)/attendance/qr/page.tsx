@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { loadUserContext } from '@/lib/utils/user-context'
 import { canCreateQrToken } from '@/lib/utils/permissions'
 import { createQrToken } from './actions'
+import DatePicker from '@/components/common/DatePicker'
 import QrDisplay from './QrDisplay'
 
 type PageProps = {
@@ -11,6 +12,7 @@ type PageProps = {
     event_date?: string
     event_title?: string
     expires_at?: string
+    expires_minutes?: string
     message?: string
   }>
 }
@@ -27,7 +29,7 @@ export default async function QrPage({ searchParams }: PageProps) {
   const ctx = await loadUserContext(user.id)
   if (!canCreateQrToken(ctx)) redirect('/attendance')
 
-  const { token, event_date, event_title, expires_at, message } = await searchParams
+  const { token, event_date, event_title, expires_at, expires_minutes, message } = await searchParams
 
   // QR 표시 모드: 토큰이 있으면 QR 코드를 보여줌
   if (token && event_date && expires_at) {
@@ -36,6 +38,9 @@ export default async function QrPage({ searchParams }: PageProps) {
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
     const checkinUrl = `${baseUrl}/attendance/checkin?token=${token}`
+
+    const originalMinutes = parseInt(expires_minutes ?? '10', 10) || 10
+    const totalSecondsForProgress = originalMinutes * 60
 
     return (
       <main className="page">
@@ -50,6 +55,7 @@ export default async function QrPage({ searchParams }: PageProps) {
           eventTitle={title}
           expiresAt={expiresAt}
           checkinUrl={checkinUrl}
+          totalSeconds={totalSecondsForProgress}
         />
 
         <div style={{ marginTop: '20px', textAlign: 'center' }}>
@@ -79,15 +85,8 @@ export default async function QrPage({ searchParams }: PageProps) {
       <div className="card" style={{ padding: '20px 18px' }}>
         <form action={createQrToken} className="stack" style={{ gap: '16px' }}>
           <div className="field">
-            <label className="field-label" htmlFor="event_date">날짜</label>
-            <input
-              id="event_date"
-              name="event_date"
-              type="date"
-              className="input"
-              defaultValue={getTodayStr()}
-              required
-            />
+            <label className="field-label">날짜</label>
+            <DatePicker name="event_date" defaultValue={getTodayStr()} required />
           </div>
 
           <div className="field">

@@ -863,38 +863,26 @@ export default async function CalendarPage({
             </p>
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              flexWrap: 'wrap',
-            }}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Link
               href={`/calendar?month=${prevMonthKey}`}
               style={{
                 textDecoration: 'none',
-                padding: '10px 14px',
-                borderRadius: 14,
-                border: '1px solid #cbd5e1',
-                color: '#0f172a',
-                fontWeight: 700,
+                width: 38, height: 38,
+                borderRadius: '50%',
+                border: '1.5px solid var(--border-strong)',
+                color: 'var(--text)',
+                fontWeight: 800,
                 background: '#ffffff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 18, flexShrink: 0,
               }}
+              title="이전 달"
             >
-              이전 달
+              ‹
             </Link>
 
-            <div
-              style={{
-                minWidth: 120,
-                textAlign: 'center',
-                fontSize: 20,
-                fontWeight: 900,
-                color: '#0f172a',
-              }}
-            >
+            <div style={{ minWidth: 110, textAlign: 'center', fontSize: 18, fontWeight: 900, color: '#0f172a' }}>
               {monthLabel}
             </div>
 
@@ -902,15 +890,37 @@ export default async function CalendarPage({
               href={`/calendar?month=${nextMonthKey}`}
               style={{
                 textDecoration: 'none',
-                padding: '10px 14px',
-                borderRadius: 14,
-                border: '1px solid #cbd5e1',
-                color: '#0f172a',
-                fontWeight: 700,
+                width: 38, height: 38,
+                borderRadius: '50%',
+                border: '1.5px solid var(--border-strong)',
+                color: 'var(--text)',
+                fontWeight: 800,
                 background: '#ffffff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 18, flexShrink: 0,
               }}
+              title="다음 달"
             >
-              다음 달
+              ›
+            </Link>
+
+            {/* iCal 내보내기 */}
+            <Link
+              href="/calendar/ical?months=3"
+              download="poongsung-ieum.ics"
+              style={{
+                textDecoration: 'none',
+                width: 38, height: 38,
+                borderRadius: '50%',
+                border: '1.5px solid var(--border-strong)',
+                color: 'var(--text-muted)',
+                background: '#ffffff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 16, flexShrink: 0,
+              }}
+              title="캘린더 내보내기 (.ics)"
+            >
+              📅
             </Link>
           </div>
         </div>
@@ -949,29 +959,14 @@ export default async function CalendarPage({
           )}
         </div>
 
-        <div
-          style={{
-            overflowX: 'auto',
-          }}
-        >
-          <div
-            style={{
-              minWidth: 720,
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-              gap: 10,
-            }}
-          >
+        <div className="cal-grid-wrapper">
+          <div className="cal-grid">
             {WEEKDAY_LABELS.map((label, index) => (
               <div
                 key={label}
+                className="cal-weekday"
                 style={{
-                  textAlign: 'center',
-                  fontWeight: 800,
-                  fontSize: 13,
-                  padding: '6px 0 2px',
-                  color:
-                    index === 0 ? '#dc2626' : index === 6 ? '#2563eb' : '#64748b',
+                  color: index === 0 ? '#dc2626' : index === 6 ? '#2563eb' : 'var(--text-muted)',
                 }}
               >
                 {label}
@@ -980,134 +975,80 @@ export default async function CalendarPage({
 
             {calendarCells.map((cell, index) => {
               if (!cell.dateKey || !cell.day) {
-                return (
-                  <div
-                    key={`empty-${index}`}
-                    style={{
-                      minHeight: 128,
-                      border: '1px solid #f1f5f9',
-                      borderRadius: 18,
-                      background: '#f8fafc',
-                    }}
-                  />
-                )
+                return <div key={`empty-${index}`} className="cal-cell empty" />
               }
 
               const dayEvents = eventsByDate.get(cell.dateKey) ?? []
               const isToday = cell.dateKey === todayKey
+              const colIndex = index % 7
 
               return (
                 <div
                   key={cell.dateKey}
-                  style={{
-                    minHeight: 128,
-                    border: isToday ? '2px solid #0f172a' : '1px solid #e2e8f0',
-                    borderRadius: 18,
-                    padding: 10,
-                    background: isToday ? '#f8fafc' : '#ffffff',
-                    display: 'grid',
-                    alignContent: 'start',
-                    gap: 8,
-                    boxShadow: isToday
-                      ? '0 12px 24px rgba(15, 23, 42, 0.06)'
-                      : 'none',
-                  }}
+                  className={`cal-cell${isToday ? ' today' : ''}`}
                 >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: 8,
-                    }}
-                  >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div
+                      className="cal-day-num"
                       style={{
-                        width: 30,
-                        height: 30,
-                        borderRadius: 999,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: isToday ? '#0f172a' : '#f8fafc',
-                        color: isToday ? '#ffffff' : '#0f172a',
-                        fontSize: 13,
-                        fontWeight: 900,
+                        color: !isToday
+                          ? colIndex === 0
+                            ? '#dc2626'
+                            : colIndex === 6
+                              ? '#2563eb'
+                              : 'var(--text)'
+                          : undefined,
                       }}
                     >
                       {cell.day}
                     </div>
-
-                    {dayEvents.length > 0 ? (
-                      <div
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: '#64748b',
-                        }}
-                      >
-                        {dayEvents.length}개
-                      </div>
-                    ) : null}
+                    {dayEvents.length > 0 && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-soft)' }}>
+                        {dayEvents.length}
+                      </span>
+                    )}
                   </div>
 
-                  <div style={{ display: 'grid', gap: 6 }}>
+                  {/* 데스크톱: pill 라벨 */}
+                  <div className="cal-pill-list" style={{ display: 'grid', gap: 3 }}>
                     {dayEvents.slice(0, 3).map((event) => {
                       const href = getEventHref(event)
                       const theme = getCategoryTheme(event.category)
-
                       const pillStyle: React.CSSProperties = {
-                        display: 'block',
-                        textDecoration: 'none',
-                        fontSize: 11,
-                        lineHeight: 1.35,
-                        padding: '6px 7px',
-                        borderRadius: 10,
                         background: theme.softBg,
                         color: theme.text,
                         border: `1px solid ${theme.border}`,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        fontWeight: 700,
                       }
-
-                      if (!href) {
-                        return (
-                          <div
-                            key={event.id}
-                            style={pillStyle}
-                            title={event.title}
-                          >
-                            {event.title}
-                          </div>
-                        )
-                      }
-
-                      return (
-                        <Link
-                          key={event.id}
-                          href={href}
-                          style={pillStyle}
-                          title={event.title}
-                        >
+                      return href ? (
+                        <Link key={event.id} href={href} className="cal-pill" style={pillStyle} title={event.title}>
                           {event.title}
                         </Link>
+                      ) : (
+                        <div key={event.id} className="cal-pill" style={pillStyle} title={event.title}>
+                          {event.title}
+                        </div>
                       )
                     })}
-
-                    {dayEvents.length > 3 ? (
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: '#64748b',
-                          fontWeight: 700,
-                          paddingLeft: 2,
-                        }}
-                      >
-                        +{dayEvents.length - 3}개 더 보기
+                    {dayEvents.length > 3 && (
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, paddingLeft: 2 }}>
+                        +{dayEvents.length - 3}
                       </div>
-                    ) : null}
+                    )}
+                  </div>
+
+                  {/* 모바일: dot 표시 */}
+                  <div className="cal-dot-row">
+                    {dayEvents.slice(0, 4).map((event) => {
+                      const theme = getCategoryTheme(event.category)
+                      return (
+                        <div
+                          key={event.id}
+                          className="cal-dot"
+                          style={{ background: theme.text }}
+                          title={event.title}
+                        />
+                      )
+                    })}
                   </div>
                 </div>
               )

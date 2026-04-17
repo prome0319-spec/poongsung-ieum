@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import PostImageUpload from '@/components/common/PostImageUpload'
 import { createPost } from '../actions'
 
 function InfoCard({
@@ -146,7 +147,7 @@ export default async function CommunityWritePage() {
           >
             <div className="list-item" style={{ padding: '14px' }}>
               <div className="muted" style={{ marginBottom: '6px' }}>
-                작성 가능 유형
+                내 역할
               </div>
               <strong>
                 {canWriteNotice ? '관리자' : canWriteSoldier ? '군지음이' : '지음이'}
@@ -157,14 +158,18 @@ export default async function CommunityWritePage() {
               <div className="muted" style={{ marginBottom: '6px' }}>
                 군지음 카테고리
               </div>
-              <strong>{canWriteSoldier ? '작성 가능' : '작성 불가'}</strong>
+              <strong style={{ color: canWriteSoldier ? 'var(--success)' : 'var(--text-muted)' }}>
+                {canWriteSoldier ? '작성 가능' : '해당 없음'}
+              </strong>
             </div>
 
             <div className="list-item" style={{ padding: '14px' }}>
               <div className="muted" style={{ marginBottom: '6px' }}>
-                공지 작성 권한
+                공지 등록
               </div>
-              <strong>{canWriteNotice ? '관리자 가능' : '관리자 전용'}</strong>
+              <strong style={{ color: canWriteNotice ? 'var(--success)' : 'var(--text-muted)' }}>
+                {canWriteNotice ? '가능' : '관리자 전용'}
+              </strong>
             </div>
           </div>
         </div>
@@ -275,6 +280,18 @@ export default async function CommunityWritePage() {
             </div>
           </div>
 
+          <div className="divider" />
+
+          <div className="stack" style={{ gap: '10px' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, letterSpacing: '-0.02em', color: '#172033' }}>
+              3. 이미지 첨부 <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-muted)' }}>선택 · 최대 3장</span>
+            </h2>
+            <p className="muted" style={{ margin: 0 }}>
+              사진을 함께 올리면 글이 더 풍성해져요. 각 파일은 10MB 이하, JPG·PNG·GIF 형식을 지원합니다.
+            </p>
+            <PostImageUpload />
+          </div>
+
           {canWriteNotice ? (
             <>
               <div className="divider" />
@@ -289,7 +306,7 @@ export default async function CommunityWritePage() {
                     color: '#172033',
                   }}
                 >
-                  3. 공지 설정
+                  4. 공지 설정
                 </h2>
                 <p className="muted" style={{ margin: 0 }}>
                   관리자일 경우 중요한 글을 상단 고정 공지로 등록할 수 있습니다.
@@ -344,23 +361,23 @@ export default async function CommunityWritePage() {
 
       <section className="stack" style={{ gap: '10px' }}>
         <InfoCard
-          title="자유"
-          description="일상 나눔, 공지 외의 일반적인 소통 글을 올릴 때 사용합니다."
+          title="💬 자유 카테고리"
+          description="일상 나눔, 행사 후기, 가벼운 소통 등 자유롭게 이야기 나눌 때 사용하세요."
         />
         <InfoCard
-          title="기도"
-          description="기도제목, 중보 요청, 신앙적 나눔을 위한 글에 적합합니다."
+          title="🙏 기도 카테고리"
+          description="기도제목을 나눌 때 사용하세요. 서로의 기도를 함께 응원할 수 있어요."
         />
         {canWriteSoldier ? (
           <InfoCard
-            title="군지음"
-            description="군 복무 중인 청년과 관련된 나눔이나 군 생활 흐름에 맞는 글을 작성할 때 사용합니다."
+            title="🎖 군지음 카테고리"
+            description="훈련소 입소·수료, 휴가 소식, 군 생활 나눔 등 군지음이를 위한 공간입니다."
           />
         ) : null}
         {canWriteNotice ? (
           <InfoCard
-            title="공지 / 상단 고정"
-            description="관리자는 중요한 안내를 공지로 등록하고 필요하면 상단 고정 공지로도 설정할 수 있습니다."
+            title="📌 공지 카테고리 & 상단 고정"
+            description="중요한 공지를 작성할 때 사용하세요. '상단 고정 공지로 등록'을 체크하면 커뮤니티 최상단에 항상 노출됩니다."
           />
         ) : null}
       </section>
