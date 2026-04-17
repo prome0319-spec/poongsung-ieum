@@ -1,10 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    // 사용자 데이터(역할·권한)가 서버에서 변경됐을 때 접속 중인 클라이언트가
-    // 즉시 최신 데이터를 받도록 클라이언트 Router Cache를 비활성화
+    // 클라이언트 Router Cache 완전 비활성화.
+    // RSC 세그먼트 캐시 불일치로 인한 페이지 오류 방지.
     staleTimes: {
       dynamic: 0,
+      static: 0,
     },
   },
   images: {
