@@ -19,7 +19,7 @@ import type {
 export async function loadUserContext(userId: string): Promise<UserContext> {
   const supabase = await createClient()
 
-  const [profileRes, execRes, teamRes, pmRes] = await Promise.all([
+  const [profileRes, execRes, teamRes, pmRes, orgUnitRes] = await Promise.all([
     supabase
       .from('profiles')
       .select(
@@ -42,6 +42,9 @@ export async function loadUserContext(userId: string): Promise<UserContext> {
       .select('pm_group_id, is_head')
       .eq('user_id', userId)
       .is('ended_at', null),
+    supabase
+      .from('org_units')
+      .select('id, name'),
   ])
 
   const raw = profileRes.data
@@ -81,16 +84,40 @@ export async function loadUserContext(userId: string): Promise<UserContext> {
   // 지기장 여부
   const isHeadPmLeader = (pmRes.data ?? []).some((r: any) => r.is_head === true)
 
-  // 군지음팀장 여부 (team_members 테이블 기준)
+  const executiveTitles = (execRes.data ?? []).map((r: any) => r.title as ExecutiveTitle)
+
+  // 군지음팀장 여부 (team_members 또는 executive_positions 기준)
   const isSoldierTeamLeader =
-    teamMemberships.some((m) => m.role === 'leader' && m.teamName === '군지음팀')
+    teamMemberships.some((m) => m.role === 'leader' && m.teamName === '군지음팀') ||
+    executiveTitles.includes('군지음팀장')
+
+  // 회장 여부 (회장 또는 청년부회장 — 목사와 동일 권한)
+  const isChairman =
+    executiveTitles.includes('회장') || executiveTitles.includes('청년부회장')
+
+  // 국장 여부
+  const isPastoralDirector = executiveTitles.includes('목양국장')
+  const isMinistryDirector = executiveTitles.includes('사역국장')
+
+  // 국장 담당 org_unit ID 목록
+  const allOrgUnits = (orgUnitRes.data ?? []) as { id: string; name: string }[]
+  const managedOrgUnitNames: string[] = []
+  if (isPastoralDirector) managedOrgUnitNames.push('목양국')
+  if (isMinistryDirector) managedOrgUnitNames.push('사역국')
+  const managedOrgUnitIds = allOrgUnits
+    .filter((u) => managedOrgUnitNames.includes(u.name))
+    .map((u) => u.id)
 
   return {
     profile,
-    executiveTitles: (execRes.data ?? []).map((r: any) => r.title as ExecutiveTitle),
+    executiveTitles,
     teamMemberships,
     pmGroupIds,
     isHeadPmLeader,
     isSoldierTeamLeader,
+    isChairman,
+    isPastoralDirector,
+    isMinistryDirector,
+    managedOrgUnitIds,
   }
 }

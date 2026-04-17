@@ -1,9 +1,9 @@
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { isAdminOrPastor } from '@/lib/utils/permissions'
+import { loadUserContext } from '@/lib/utils/user-context'
+import { hasPastorLevelAccess } from '@/lib/utils/permissions'
 import { adminCancelSignup } from '../../../volunteer/actions'
-import type { SystemRole } from '@/types/user'
 
 type PageProps = {
   params: Promise<{ dutyId: string }>
@@ -64,9 +64,8 @@ export default async function AdminVolunteerDetailPage({ params, searchParams }:
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: myProfile } = await supabase
-    .from('profiles').select('system_role').eq('id', user.id).single()
-  if (!isAdminOrPastor(myProfile?.system_role as SystemRole | null)) redirect('/home')
+  const ctx = await loadUserContext(user.id)
+  if (!hasPastorLevelAccess(ctx)) redirect('/home')
 
   const { data: dutyData } = await supabase
     .from('volunteer_duties')

@@ -2,8 +2,9 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../../lib/supabase/server'
+import { loadUserContext } from '@/lib/utils/user-context'
 import { logout } from '../../(auth)/actions'
-import { getUserTypeLabel, canManageHomeNotice, isAdmin as checkAdmin, isPastor as checkPastor, isAdminOrPastor } from '@/lib/utils/permissions'
+import { getUserTypeLabel, canManageHomeNotice, hasPastorLevelAccess, canAccessSoldierAdmin, canViewAttendance } from '@/lib/utils/permissions'
 import type { SystemRole } from '@/types/user'
 
 type ProfileRow = {
@@ -75,14 +76,13 @@ export default async function MyPage() {
     .maybeSingle()
 
   const profile = data as ProfileRow | null
-  const sysRole = profile?.system_role ?? null
-  const isSoldier = profile?.is_soldier ?? false
-  const isAdminUser = checkAdmin(sysRole)
-  const isPastorUser = checkPastor(sysRole)
-  const showAttendance =
-    isAdminOrPastor(sysRole) ||
-    !!profile?.pm_group_id
+  const ctx = await loadUserContext(user.id)
+  const sysRole = ctx.profile.system_role
+  const isSoldier = ctx.profile.is_soldier
+  const showAttendance = canViewAttendance(ctx)
   const showNoticeAdmin = canManageHomeNotice(sysRole)
+  const isPastorLevel = hasPastorLevelAccess(ctx)
+  const isSoldierAdmin = canAccessSoldierAdmin(ctx)
   const displayName = getDisplayName(profile ?? { name: null, nickname: null })
   const ddayInfo = isSoldier ? getDdayInfo(profile?.discharge_date ?? null) : null
   const avatarSrc = profile?.avatar_url ?? (isSoldier ? '/avatar-soldier.svg' : '/avatar-default.svg')
@@ -90,8 +90,8 @@ export default async function MyPage() {
   const menuItems: MenuItem[] = [
     { icon: '✏️', label: '프로필 수정', href: '/my/edit', desc: '이름, 닉네임, 소개 변경' },
     ...(showAttendance ? [{ icon: '📋', label: '출석체크', href: '/attendance', desc: '주일 출석 관리' }] : []),
-    // 관리자/목사: 관리 메뉴
-    ...(isAdminUser || isPastorUser ? [
+    // 목사급(admin/pastor/회장): 관리 메뉴
+    ...(isPastorLevel ? [
       { icon: '📣', label: '공지 관리', href: '/admin/notices', desc: '홈 팝업 공지 등록', adminOnly: true },
       { icon: '👥', label: '사용자 관리', href: '/admin/users', desc: '회원 정보 및 역할 관리', adminOnly: true },
       { icon: '📅', label: '일정 관리', href: '/admin/calendar', desc: '일정 등록·수정·삭제', adminOnly: true },
@@ -99,6 +99,8 @@ export default async function MyPage() {
       { icon: '🤝', label: '상담 관리', href: '/admin/counseling', desc: '멤버 상담 신청 확인', adminOnly: true },
       { icon: '✋', label: '봉사 관리', href: '/admin/volunteer', desc: '봉사 일정 등록', adminOnly: true },
     ] : [
+      // 군지음팀장: 군지음 케어 메뉴
+      ...(isSoldierAdmin ? [{ icon: '🎖️', label: '군지음 케어', href: '/admin/soldiers', desc: '전역 D-Day·근황 관리', adminOnly: true }] : []),
       // 일반 멤버: 바로가기
       ...(showNoticeAdmin ? [{ icon: '📣', label: '공지 관리', href: '/admin/notices', desc: '홈 팝업 공지 등록' }] : []),
       { icon: '🤝', label: '상담 신청', href: '/counseling', desc: '내 상담 신청 내역' },

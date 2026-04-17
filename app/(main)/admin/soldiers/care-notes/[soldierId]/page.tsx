@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { isAdminOrPastor } from '@/lib/utils/permissions'
-import type { SystemRole } from '@/types/user'
+import { loadUserContext } from '@/lib/utils/user-context'
+import { canAccessSoldierAdmin } from '@/lib/utils/permissions'
 import { createCareNote, deleteCareNote } from '../actions'
 
 type PageProps = {
@@ -62,13 +62,8 @@ export default async function CareNotesDetailPage({ params }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: me } = await supabase
-    .from('profiles')
-    .select('system_role')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  if (!isAdminOrPastor((me?.system_role as SystemRole | null) ?? null)) redirect('/my')
+  const ctx = await loadUserContext(user.id)
+  if (!canAccessSoldierAdmin(ctx)) redirect('/my')
 
   const { data: soldierData } = await supabase
     .from('profiles')

@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { isAdminOrPastor } from '@/lib/utils/permissions'
-import type { SystemRole } from '@/types/user'
+import { loadUserContext } from '@/lib/utils/user-context'
+import { hasPastorLevelAccess } from '@/lib/utils/permissions'
 
 type BirthdayProfile = {
   id: string
@@ -74,14 +74,8 @@ export default async function BirthdaysPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: me } = await supabase
-    .from('profiles')
-    .select('system_role')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  const sysRole = (me?.system_role as SystemRole | null) ?? null
-  if (!isAdminOrPastor(sysRole)) redirect('/my')
+  const ctx = await loadUserContext(user.id)
+  if (!hasPastorLevelAccess(ctx)) redirect('/my')
 
   const { data: rows } = await supabase
     .from('profiles')

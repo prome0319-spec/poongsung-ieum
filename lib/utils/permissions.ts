@@ -97,9 +97,24 @@ export function canChangeUserType(ctx: UserContext): boolean {
   return ctx.profile.system_role === 'admin'
 }
 
+// ── 목사급 권한 (admin | pastor | 회장 | 청년부회장) ──────────
+export function hasPastorLevelAccess(ctx: UserContext): boolean {
+  return isAdminOrPastor(ctx.profile.system_role) || ctx.isChairman
+}
+
+/** 군지음 관리 권한 (목사급 또는 군지음팀장) */
+export function canAccessSoldierAdmin(ctx: UserContext): boolean {
+  return hasPastorLevelAccess(ctx) || ctx.isSoldierTeamLeader
+}
+
+/** 특정 org_unit 관리 권한 (목사급 또는 해당 국장) */
+export function canManageOrgUnit(ctx: UserContext, orgUnitId: string): boolean {
+  return hasPastorLevelAccess(ctx) || ctx.managedOrgUnitIds.includes(orgUnitId)
+}
+
 /** 조직 구조 관리 가능 여부 */
 export function canManageOrg(ctx: UserContext): boolean {
-  return isAdminOrPastor(ctx.profile.system_role)
+  return hasPastorLevelAccess(ctx) || ctx.isPastoralDirector || ctx.isMinistryDirector
 }
 
 /** 일정 생성/수정 가능 여부 */

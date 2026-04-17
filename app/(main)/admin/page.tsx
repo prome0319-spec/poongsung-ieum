@@ -8,6 +8,9 @@ import {
   canManageHomeNotice,
   canViewAttendance,
   canManagePmGroups,
+  hasPastorLevelAccess,
+  canAccessSoldierAdmin,
+  canManageOrg,
   isAdminOrPastor,
 } from '@/lib/utils/permissions'
 import type { SystemRole } from '@/types/user'
@@ -283,16 +286,16 @@ export default async function AdminDashboardPage() {
   type AdminCard = { href: string; emoji: string; category: string; title: string; desc: string; visible: boolean }
   const cards: AdminCard[] = [
     { href: '/admin/users',       emoji: '👥', category: '사용자',   title: '사용자 관리',    desc: '목록·유형 변경·PM 그룹 배정',        visible: canAccessAdminUsers(ctx) },
-    { href: '/admin/soldiers',    emoji: '🎖️', category: '군지음',   title: '군지음 케어',    desc: '전역 D-Day·근황 관리',              visible: isAdminOrPastor(systemRole) },
-    { href: '/admin/org',         emoji: '🏛️', category: '조직',     title: '조직 관리',      desc: '팀·임원단·PM지기 구성',             visible: isAdminOrPastor(systemRole) },
+    { href: '/admin/soldiers',    emoji: '🎖️', category: '군지음',   title: '군지음 케어',    desc: '전역 D-Day·근황 관리',              visible: canAccessSoldierAdmin(ctx) },
+    { href: '/admin/org',         emoji: '🏛️', category: '조직',     title: '조직 관리',      desc: '팀·임원단·PM지기 구성',             visible: canManageOrg(ctx) },
     { href: '/admin/pm-groups',   emoji: '🏘️', category: '소그룹',   title: 'PM 그룹',        desc: '소그룹 생성·수정·삭제',             visible: canManagePmGroups(systemRole) },
     { href: '/admin/calendar',    emoji: '📅', category: '일정',     title: '일정 관리',      desc: '예배·행사·모임 일정',               visible: canManageSchedule(systemRole) },
     { href: '/admin/notices',     emoji: '📣', category: '공지',     title: '홈 공지 팝업',   desc: '홈 화면 팝업 등록',                 visible: canManageHomeNotice(systemRole) },
     { href: '/attendance',        emoji: '📋', category: '출석',     title: '출석 관리',      desc: '출석 체크 및 통계',                 visible: canViewAttendance(ctx) },
-    { href: '/admin/counseling',  emoji: '🤝', category: '상담',     title: '상담 관리',      desc: '신청 확인 및 응답',                 visible: isAdminOrPastor(systemRole) },
-    { href: '/admin/volunteer',   emoji: '✋', category: '봉사',     title: '봉사 관리',      desc: '일정 등록·신청 현황',               visible: isAdminOrPastor(systemRole) },
+    { href: '/admin/counseling',  emoji: '🤝', category: '상담',     title: '상담 관리',      desc: '신청 확인 및 응답',                 visible: hasPastorLevelAccess(ctx) },
+    { href: '/admin/volunteer',   emoji: '✋', category: '봉사',     title: '봉사 관리',      desc: '일정 등록·신청 현황',               visible: hasPastorLevelAccess(ctx) },
     { href: '/admin/chat-rooms',  emoji: '💬', category: '채팅',     title: '채팅방 관리',    desc: '공지형·일반 채팅방 설정',           visible: canAccessAdminUsers(ctx) },
-    { href: '/admin/birthdays',   emoji: '🎂', category: '생일',     title: '생일 관리',      desc: '이번 달·다가오는 생일 확인',        visible: isAdminOrPastor(systemRole) },
+    { href: '/admin/birthdays',   emoji: '🎂', category: '생일',     title: '생일 관리',      desc: '이번 달·다가오는 생일 확인',        visible: hasPastorLevelAccess(ctx) },
   ]
   const visibleCards = cards.filter((c) => c.visible)
 

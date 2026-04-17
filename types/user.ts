@@ -13,11 +13,13 @@ export type UserType =
 // ── 임원단 직책 ──────────────────────────────────────────────
 export type ExecutiveTitle =
   | '담당목사'
+  | '회장'
   | '청년부회장'
   | '부회장'
   | '회계'
   | '사역국장'
   | '목양국장'
+  | '군지음팀장'
 
 export type TeamRole = 'leader' | 'member'
 
@@ -55,9 +57,14 @@ export type UserContext = {
   profile: AppProfile
   executiveTitles: ExecutiveTitle[]
   teamMemberships: TeamMembership[]
-  pmGroupIds: string[]       // 담당 PM 그룹 ID 목록
-  isHeadPmLeader: boolean    // 지기장 여부
-  isSoldierTeamLeader: boolean  // 군지음팀장 여부
+  pmGroupIds: string[]            // 담당 PM 그룹 ID 목록
+  isHeadPmLeader: boolean         // 지기장 여부
+  isSoldierTeamLeader: boolean    // 군지음팀장 여부
+  // ── 추가 역할 플래그 ──────────────────────────────────────
+  isChairman: boolean             // 회장 또는 청년부회장 (목사와 동일 권한)
+  isPastoralDirector: boolean     // 목양국장
+  isMinistryDirector: boolean     // 사역국장
+  managedOrgUnitIds: string[]     // 담당 org_unit ID 목록 (국장용)
 }
 
 // ── 기타 ─────────────────────────────────────────────────────

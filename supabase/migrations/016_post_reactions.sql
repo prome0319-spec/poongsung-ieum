@@ -1,7 +1,7 @@
 -- 게시글 리액션 (기도하고 있어요 등)
 create table if not exists post_reactions (
   id          uuid primary key default gen_random_uuid(),
-  post_id     uuid not null references posts(id) on delete cascade,
+  post_id     bigint not null references posts(id) on delete cascade,
   user_id     uuid not null references profiles(id) on delete cascade,
   type        text not null default 'pray',
   created_at  timestamptz not null default now(),

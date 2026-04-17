@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { isAdminOrPastor } from '@/lib/utils/permissions'
-import type { SystemRole } from '@/types/user'
+import { loadUserContext } from '@/lib/utils/user-context'
+import { canAccessSoldierAdmin } from '@/lib/utils/permissions'
 
 type SoldierProfile = {
   id: string
@@ -59,13 +59,8 @@ export default async function AdminSoldiersPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: myProfile } = await supabase
-    .from('profiles')
-    .select('system_role')
-    .eq('id', user.id)
-    .single()
-
-  if (!isAdminOrPastor(myProfile?.system_role as SystemRole | null)) redirect('/home')
+  const ctx = await loadUserContext(user.id)
+  if (!canAccessSoldierAdmin(ctx)) redirect('/home')
 
   const { data: soldiers } = await supabase
     .from('profiles')

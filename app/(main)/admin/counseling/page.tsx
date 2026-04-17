@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { isAdminOrPastor } from '@/lib/utils/permissions'
+import { loadUserContext } from '@/lib/utils/user-context'
+import { hasPastorLevelAccess } from '@/lib/utils/permissions'
 import { updateCounselingStatus } from '../../counseling/actions'
-import type { SystemRole } from '@/types/user'
 
 type PageProps = {
   searchParams: Promise<{ message?: string; status?: string }>
@@ -59,9 +59,8 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: myProfile } = await supabase
-    .from('profiles').select('system_role').eq('id', user.id).single()
-  if (!isAdminOrPastor(myProfile?.system_role as SystemRole | null)) redirect('/home')
+  const ctx = await loadUserContext(user.id)
+  if (!hasPastorLevelAccess(ctx)) redirect('/home')
 
   const { message, status: filterStatus } = await searchParams
 
