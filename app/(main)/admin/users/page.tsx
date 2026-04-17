@@ -410,6 +410,24 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
                     <span style={{ padding: '4px 10px', borderRadius: 999, background: sysRoleMeta.bg, color: sysRoleMeta.color, fontSize: 12, fontWeight: 600 }}>
                       {getUserTypeLabel(member.system_role, member.is_soldier)}
                     </span>
+                    {memberExecTitles.map((title) => {
+                      const m = EXEC_BADGE[title]
+                      return (
+                        <span key={title} style={{ padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: m.bg, color: m.color, border: `1px solid ${m.color}33` }}>
+                          {m.emoji} {title}
+                        </span>
+                      )
+                    })}
+                    {memberPmLeaders.map((pl, i) => (
+                      <span key={i} style={{ padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: '#fffbeb', color: '#78350f', border: '1px solid #fde68a' }}>
+                        {pl.is_head ? '👑 지기장' : '🏠 PM지기'} {pl.pm_groups?.name ? `(${pl.pm_groups.name})` : ''}
+                      </span>
+                    ))}
+                    {memberTeamLeaders.map((tl, i) => (
+                      <span key={i} style={{ padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: '#f3f4f6', color: '#1f2937', border: '1px solid #d1d5db' }}>
+                        ⚑ {tl.teams?.name ?? ''} {tl.teams?.leader_title ?? '팀장'}
+                      </span>
+                    ))}
                     <span style={{ padding: '4px 10px', borderRadius: 999, background: actBg, color: actColor, fontSize: 12, fontWeight: 600 }}>
                       {actLabel}
                     </span>
@@ -418,30 +436,6 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
                     </span>
                   </div>
                 </div>
-
-                {/* 역할 뱃지 (임원단·PM지기·팀장) */}
-                {(memberExecTitles.length > 0 || memberPmLeaders.length > 0 || memberTeamLeaders.length > 0) && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                    {memberExecTitles.map((title) => {
-                      const m = EXEC_BADGE[title]
-                      return (
-                        <span key={title} style={{ padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: m.bg, color: m.color, border: `1px solid ${m.color}33` }}>
-                          {m.emoji} {title}
-                        </span>
-                      )
-                    })}
-                    {memberPmLeaders.map((pl, i) => (
-                      <span key={i} style={{ padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: '#fffbeb', color: '#78350f', border: '1px solid #fde68a' }}>
-                        {pl.is_head ? '👑 지기장' : '🏠 PM지기'} {pl.pm_groups?.name ? `(${pl.pm_groups.name})` : ''}
-                      </span>
-                    ))}
-                    {memberTeamLeaders.map((tl, i) => (
-                      <span key={i} style={{ padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: '#f3f4f6', color: '#1f2937', border: '1px solid #d1d5db' }}>
-                        ⚑ {tl.teams?.name ?? ''} {tl.teams?.leader_title ?? '팀장'}
-                      </span>
-                    ))}
-                  </div>
-                )}
 
                 <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', fontSize: 13 }}>
                   <InfoItem label="가입일" value={formatDate(member.created_at)} />

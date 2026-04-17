@@ -60,6 +60,7 @@ export async function deleteTeam(formData: FormData) {
 }
 
 // ── 팀원 관련 ─────────────────────────────────────────────────
+// 팀원/팀장 변경은 권한에 영향 → 전체 경로 revalidate
 
 export async function addTeamMember(formData: FormData) {
   const { adminClient } = await requireOrgAdmin()
@@ -69,14 +70,9 @@ export async function addTeamMember(formData: FormData) {
 
   if (!teamId || !userId) goWithMessage('/admin/org', '팀과 사용자를 선택하세요.')
 
-  const { error } = await adminClient.from('team_members').insert({
-    team_id: teamId,
-    user_id: userId,
-    role,
-  })
-
+  const { error } = await adminClient.from('team_members').insert({ team_id: teamId, user_id: userId, role })
   if (error) goWithMessage('/admin/org', `팀원 추가 실패: ${error.message}`)
-  revalidatePath('/admin/org')
+  revalidatePath('/', 'layout')
   goWithMessage('/admin/org', '팀원이 추가되었습니다.')
 }
 
@@ -86,7 +82,7 @@ export async function removeTeamMember(formData: FormData) {
   if (!memberId) goWithMessage('/admin/org', '멤버 ID가 없습니다.')
   const { error } = await adminClient.from('team_members').delete().eq('id', memberId)
   if (error) goWithMessage('/admin/org', `팀원 제거 실패: ${error.message}`)
-  revalidatePath('/admin/org')
+  revalidatePath('/', 'layout')
   goWithMessage('/admin/org', '팀원이 제거되었습니다.')
 }
 
@@ -97,11 +93,12 @@ export async function updateTeamMemberRole(formData: FormData) {
   if (!memberId || !role) goWithMessage('/admin/org', '올바르지 않은 요청입니다.')
   const { error } = await adminClient.from('team_members').update({ role }).eq('id', memberId)
   if (error) goWithMessage('/admin/org', `역할 변경 실패: ${error.message}`)
-  revalidatePath('/admin/org')
+  revalidatePath('/', 'layout')
   goWithMessage('/admin/org', '역할이 변경되었습니다.')
 }
 
 // ── 임원단 관련 ───────────────────────────────────────────────
+// 임원 직책 변경은 권한에 영향 → 전체 경로 revalidate
 
 export async function upsertExecutivePosition(formData: FormData) {
   const { adminClient } = await requireOrgAdmin()
@@ -120,7 +117,7 @@ export async function upsertExecutivePosition(formData: FormData) {
     if (error) goWithMessage('/admin/org', `임원 등록 실패: ${error.message}`)
   }
 
-  revalidatePath('/admin/org')
+  revalidatePath('/', 'layout')
   goWithMessage('/admin/org', '임원 정보가 저장되었습니다.')
 }
 
@@ -131,11 +128,12 @@ export async function endExecutivePosition(formData: FormData) {
   const endedAt = new Date().toISOString().slice(0, 10)
   const { error } = await adminClient.from('executive_positions').update({ ended_at: endedAt }).eq('id', id)
   if (error) goWithMessage('/admin/org', `종료 처리 실패: ${error.message}`)
-  revalidatePath('/admin/org')
+  revalidatePath('/', 'layout')
   goWithMessage('/admin/org', '직책이 종료 처리되었습니다.')
 }
 
 // ── PM 그룹 리더 관련 ─────────────────────────────────────────
+// PM지기 변경은 권한에 영향 → 전체 경로 revalidate
 
 export async function setPmGroupLeader(formData: FormData) {
   const { adminClient } = await requireOrgAdmin()
@@ -152,7 +150,7 @@ export async function setPmGroupLeader(formData: FormData) {
   })
 
   if (error) goWithMessage('/admin/org', `PM지기 등록 실패: ${error.message}`)
-  revalidatePath('/admin/org')
+  revalidatePath('/', 'layout')
   goWithMessage('/admin/org', 'PM지기가 등록되었습니다.')
 }
 
@@ -163,6 +161,6 @@ export async function removePmGroupLeader(formData: FormData) {
   const endedAt = new Date().toISOString().slice(0, 10)
   const { error } = await adminClient.from('pm_group_leaders').update({ ended_at: endedAt }).eq('id', id)
   if (error) goWithMessage('/admin/org', `PM지기 해제 실패: ${error.message}`)
-  revalidatePath('/admin/org')
+  revalidatePath('/', 'layout')
   goWithMessage('/admin/org', 'PM지기가 해제되었습니다.')
 }

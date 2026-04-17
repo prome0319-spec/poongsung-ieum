@@ -42,7 +42,7 @@ function displayName(p: ProfileSnippet | ProfileSnippet[] | null | undefined) {
   return (profile?.nickname || profile?.name || '이름없음').trim()
 }
 
-const EXECUTIVE_TITLES = ['담당목사', '청년부회장', '부회장', '회계', '사역국장', '목양국장'] as const
+const EXECUTIVE_TITLES = ['담당목사', '회장', '청년부회장', '부회장', '회계', '사역국장', '목양국장', '군지음팀장'] as const
 
 export default async function AdminOrgPage({ searchParams }: PageProps) {
   const { message, tab = 'teams' } = await searchParams

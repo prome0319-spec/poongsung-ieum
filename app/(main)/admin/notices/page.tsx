@@ -2,10 +2,11 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { loadUserContext } from '@/lib/utils/user-context'
 import { canManageHomeNotice } from '@/lib/utils/permissions'
 import { toggleHomeNotice } from './actions'
 import DeleteNoticeButton from './DeleteNoticeButton'
-import type { SystemRole, HomeNotice } from '@/types/user'
+import type { HomeNotice } from '@/types/user'
 
 type PageProps = {
   searchParams: Promise<{ message?: string }>
@@ -30,15 +31,8 @@ export default async function AdminNoticesPage({ searchParams }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, system_role')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  if (!canManageHomeNotice(profile?.system_role as SystemRole | null)) {
-    redirect('/home')
-  }
+  const ctx = await loadUserContext(user.id)
+  if (!canManageHomeNotice(ctx)) redirect('/home')
 
   const { data: noticesData } = await supabase
     .from('home_notices')

@@ -79,8 +79,21 @@ export default async function MyPage() {
   const ctx = await loadUserContext(user.id)
   const sysRole = ctx.profile.system_role
   const isSoldier = ctx.profile.is_soldier
+
+  // PM지기/지기장 그룹명 조회 (뱃지 표시용)
+  type PmLeaderInfo = { id: string; is_head: boolean; pm_groups: { name: string } | null }
+  const { data: pmLeaderRaw } = await supabase
+    .from('pm_group_leaders')
+    .select('id, is_head, pm_groups(name)')
+    .eq('user_id', user.id)
+    .is('ended_at', null)
+  const pmLeaderGroups = ((pmLeaderRaw ?? []) as any[]).map((r) => ({
+    id: r.id as string,
+    is_head: r.is_head as boolean,
+    groupName: (Array.isArray(r.pm_groups) ? r.pm_groups[0]?.name : r.pm_groups?.name) as string | null,
+  })) satisfies { id: string; is_head: boolean; groupName: string | null }[]
   const showAttendance = canViewAttendance(ctx)
-  const showNoticeAdmin = canManageHomeNotice(sysRole)
+  const showNoticeAdmin = canManageHomeNotice(ctx)
   const isPastorLevel = hasPastorLevelAccess(ctx)
   const isSoldierAdmin = canAccessSoldierAdmin(ctx)
   const displayName = getDisplayName(profile ?? { name: null, nickname: null })
@@ -180,32 +193,57 @@ export default async function MyPage() {
             <h1 style={{ margin: '0 0 6px', fontSize: '22px', fontWeight: 800, color: 'white', letterSpacing: '-0.025em' }}>
               {displayName}
             </h1>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span
-                style={{
-                  padding: '4px 12px',
-                  borderRadius: '999px',
-                  background: 'rgba(255,255,255,0.2)',
-                  border: '1px solid rgba(255,255,255,0.35)',
-                  color: 'white',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                }}
-              >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              {/* 지음이 / 군지음이 기본 뱃지 */}
+              <span style={{
+                padding: '4px 12px', borderRadius: '999px',
+                background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.35)',
+                color: 'white', fontSize: '12px', fontWeight: 700,
+              }}>
                 {getUserTypeLabel(profile?.system_role ?? null, isSoldier)}
               </span>
+
+              {/* 임원단 직책 뱃지 */}
+              {ctx.executiveTitles.map((title) => (
+                <span key={title} style={{
+                  padding: '4px 12px', borderRadius: '999px',
+                  background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.4)',
+                  color: 'white', fontSize: '12px', fontWeight: 700,
+                  backdropFilter: 'blur(4px)',
+                }}>
+                  {title}
+                </span>
+              ))}
+
+              {/* PM지기 / 지기장 뱃지 */}
+              {pmLeaderGroups.map((pl) => (
+                <span key={pl.id} style={{
+                  padding: '4px 12px', borderRadius: '999px',
+                  background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.4)',
+                  color: 'white', fontSize: '12px', fontWeight: 700,
+                }}>
+                  {pl.is_head ? '👑 지기장' : '🏠 PM지기'}{pl.groupName ? ` · ${pl.groupName}` : ''}
+                </span>
+              ))}
+
+              {/* 팀장 뱃지 */}
+              {ctx.teamMemberships.filter((m) => m.role === 'leader').map((tm) => (
+                <span key={tm.teamId} style={{
+                  padding: '4px 12px', borderRadius: '999px',
+                  background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.4)',
+                  color: 'white', fontSize: '12px', fontWeight: 700,
+                }}>
+                  {tm.teamName} {tm.leaderTitle}
+                </span>
+              ))}
+
+              {/* 군부대 */}
               {profile?.military_unit && (
-                <span
-                  style={{
-                    padding: '4px 12px',
-                    borderRadius: '999px',
-                    background: 'rgba(255,255,255,0.15)',
-                    border: '1px solid rgba(255,255,255,0.25)',
-                    color: 'rgba(255,255,255,0.9)',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                  }}
-                >
+                <span style={{
+                  padding: '4px 12px', borderRadius: '999px',
+                  background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)',
+                  color: 'rgba(255,255,255,0.9)', fontSize: '12px', fontWeight: 600,
+                }}>
                   {profile.military_unit}
                 </span>
               )}

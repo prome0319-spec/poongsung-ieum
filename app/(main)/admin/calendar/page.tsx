@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { loadUserContext } from '@/lib/utils/user-context'
 import { canManageSchedule, canDeleteSchedule } from '@/lib/utils/permissions'
-import type { SystemRole } from '@/types/user'
 import { createSchedule, bulkCreateSchedules, deleteSchedule } from '@/app/(main)/calendar/actions'
 import DatePicker from '@/components/common/DatePicker'
 import DateTimePicker from '@/components/common/DateTimePicker'
@@ -65,13 +65,10 @@ export default async function AdminCalendarPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles').select('id, system_role').eq('id', user.id).maybeSingle()
+  const ctx = await loadUserContext(user.id)
+  if (!canManageSchedule(ctx)) redirect('/calendar')
 
-  const systemRole = (profile?.system_role as SystemRole | null) ?? null
-  if (!canManageSchedule(systemRole)) redirect('/calendar')
-
-  const canDelete = canDeleteSchedule(systemRole)
+  const canDelete = canDeleteSchedule(ctx)
   const params = await searchParams
   const message = params.message ?? null
 

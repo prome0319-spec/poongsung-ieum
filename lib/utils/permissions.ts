@@ -117,24 +117,28 @@ export function canManageOrg(ctx: UserContext): boolean {
   return hasPastorLevelAccess(ctx) || ctx.isPastoralDirector || ctx.isMinistryDirector
 }
 
-/** 일정 생성/수정 가능 여부 */
-export function canManageSchedule(systemRole: SystemRole | null | undefined): boolean {
-  return isAdminOrPastor(systemRole)
+/** 일정 생성/수정 가능 여부 (회장 포함) */
+export function canManageSchedule(ctxOrRole: UserContext | SystemRole | null | undefined): boolean {
+  if (ctxOrRole && typeof ctxOrRole === 'object') return hasPastorLevelAccess(ctxOrRole)
+  return isAdminOrPastor(ctxOrRole as SystemRole | null | undefined)
 }
 
-/** 일정 삭제 가능 여부 */
-export function canDeleteSchedule(systemRole: SystemRole | null | undefined): boolean {
-  return isAdminOrPastor(systemRole)
+/** 일정 삭제 가능 여부 (회장 포함) */
+export function canDeleteSchedule(ctxOrRole: UserContext | SystemRole | null | undefined): boolean {
+  if (ctxOrRole && typeof ctxOrRole === 'object') return hasPastorLevelAccess(ctxOrRole)
+  return isAdminOrPastor(ctxOrRole as SystemRole | null | undefined)
 }
 
-/** 홈 공지 팝업 관리 가능 여부 */
-export function canManageHomeNotice(systemRole: SystemRole | null | undefined): boolean {
-  return isAdminOrPastor(systemRole)
+/** 홈 공지 팝업 관리 가능 여부 (회장 포함) */
+export function canManageHomeNotice(ctxOrRole: UserContext | SystemRole | null | undefined): boolean {
+  if (ctxOrRole && typeof ctxOrRole === 'object') return hasPastorLevelAccess(ctxOrRole)
+  return isAdminOrPastor(ctxOrRole as SystemRole | null | undefined)
 }
 
-/** 공지사항 게시글 작성 가능 여부 */
-export function canWriteNotice(systemRole: SystemRole | null | undefined): boolean {
-  return isAdminOrPastor(systemRole)
+/** 공지사항 게시글 작성 가능 여부 (회장 포함) */
+export function canWriteNotice(ctxOrRole: UserContext | SystemRole | null | undefined): boolean {
+  if (ctxOrRole && typeof ctxOrRole === 'object') return hasPastorLevelAccess(ctxOrRole)
+  return isAdminOrPastor(ctxOrRole as SystemRole | null | undefined)
 }
 
 /** PM 그룹 생성/수정 가능 여부 */

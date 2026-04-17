@@ -3,8 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { loadUserContext } from '@/lib/utils/user-context'
 import { canManageHomeNotice } from '@/lib/utils/permissions'
-import type { SystemRole } from '@/types/user'
 
 function goWithMessage(path: string, message: string): never {
   const sep = path.includes('?') ? '&' : '?'
@@ -21,17 +21,10 @@ async function getAuthorized() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, system_role')
-    .eq('id', user.id)
-    .maybeSingle()
+  const ctx = await loadUserContext(user.id)
+  if (!canManageHomeNotice(ctx)) redirect('/home')
 
-  if (!canManageHomeNotice(profile?.system_role as SystemRole | null)) {
-    redirect('/home')
-  }
-
-  return { supabase, user, profile }
+  return { supabase, user }
 }
 
 export async function createHomeNotice(formData: FormData) {

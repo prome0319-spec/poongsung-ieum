@@ -3,6 +3,7 @@ import { isRedirectError } from 'next/dist/client/components/redirect-error'
 import { Suspense } from 'react'
 import BottomNav from '../../components/common/BottomNav'
 import MessageToast from '../../components/common/MessageToast'
+import RealtimeRefresher from '../../components/common/RealtimeRefresher'
 import { createClient } from '../../lib/supabase/server'
 
 export default async function MainLayout({
@@ -69,6 +70,7 @@ export default async function MainLayout({
       <Suspense>
         <MessageToast />
       </Suspense>
+      <RealtimeRefresher userId={user.id} />
     </div>
   )
 }

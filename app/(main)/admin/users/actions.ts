@@ -80,9 +80,7 @@ export async function updateUserTypeAndGroup(formData: FormData) {
   if (error) goWithMessage(returnTo, `변경 실패: ${error.message}`)
   if (count === 0) goWithMessage(returnTo, '변경 실패: 대상 사용자를 찾을 수 없습니다.')
 
-  revalidatePath('/admin/users')
-  revalidatePath(`/admin/users/${targetUserId}`)
-  revalidatePath('/attendance')
+  revalidatePath('/', 'layout')
 
   goWithMessage(returnTo, '사용자 정보가 변경되었습니다.')
 }
@@ -108,8 +106,7 @@ export async function addUserExecutiveTitle(formData: FormData) {
 
   if (error) goWithMessage(returnTo, `직책 추가 실패: ${error.message}`)
 
-  revalidatePath('/admin/users')
-  revalidatePath(`/admin/users/${targetUserId}`)
+  revalidatePath('/', 'layout')
   goWithMessage(returnTo, `${title} 직책이 추가되었습니다.`)
 }
 
@@ -132,8 +129,7 @@ export async function removeUserExecutiveTitle(formData: FormData) {
 
   if (error) goWithMessage(returnTo, `직책 제거 실패: ${error.message}`)
 
-  revalidatePath('/admin/users')
-  revalidatePath(`/admin/users/${targetUserId}`)
+  revalidatePath('/', 'layout')
   goWithMessage(returnTo, '직책이 제거되었습니다.')
 }
 

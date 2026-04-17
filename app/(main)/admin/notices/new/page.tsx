@@ -1,9 +1,9 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { loadUserContext } from '@/lib/utils/user-context'
 import { canManageHomeNotice } from '@/lib/utils/permissions'
 import { createHomeNotice } from '../actions'
-import type { SystemRole } from '@/types/user'
 
 type PageProps = {
   searchParams: Promise<{ message?: string }>
@@ -16,15 +16,8 @@ export default async function AdminNoticeNewPage({ searchParams }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, system_role')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  if (!canManageHomeNotice(profile?.system_role as SystemRole | null)) {
-    redirect('/home')
-  }
+  const ctx = await loadUserContext(user.id)
+  if (!canManageHomeNotice(ctx)) redirect('/home')
 
   // 기본 만료일: 오늘 + 7일
   const defaultExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
