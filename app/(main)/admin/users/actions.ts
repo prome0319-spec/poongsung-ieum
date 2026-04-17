@@ -6,6 +6,11 @@ import { createClient } from '@/lib/supabase/server'
 import { canAccessAdminUsers, canChangeUserType } from '@/lib/utils/permissions'
 import { loadUserContext } from '@/lib/utils/user-context'
 import { createAdminClient } from '@/lib/supabase/admin'
+import type { ExecutiveTitle } from '@/types/user'
+
+const VALID_EXEC_TITLES: ExecutiveTitle[] = [
+  '담당목사', '회장', '청년부회장', '부회장', '회계', '사역국장', '목양국장', '군지음팀장',
+]
 
 function toText(value: FormDataEntryValue | null) {
   return String(value ?? '').trim()
@@ -80,6 +85,56 @@ export async function updateUserTypeAndGroup(formData: FormData) {
   revalidatePath('/attendance')
 
   goWithMessage(returnTo, '사용자 정보가 변경되었습니다.')
+}
+
+export async function addUserExecutiveTitle(formData: FormData) {
+  const { adminCtx } = await requireAdmin()
+  if (!canChangeUserType(adminCtx)) redirect('/home')
+
+  const adminClient = createAdminClient()
+  const targetUserId = toText(formData.get('target_user_id'))
+  const title = toText(formData.get('title')) as ExecutiveTitle
+  const returnTo = toText(formData.get('return_to')) || '/admin/users'
+
+  if (!targetUserId || !title) goWithMessage(returnTo, '사용자와 직책을 선택하세요.')
+  if (!VALID_EXEC_TITLES.includes(title)) goWithMessage(returnTo, '올바르지 않은 직책입니다.')
+
+  const startedAt = new Date().toISOString().slice(0, 10)
+  const { error } = await adminClient.from('executive_positions').insert({
+    user_id: targetUserId,
+    title,
+    started_at: startedAt,
+  })
+
+  if (error) goWithMessage(returnTo, `직책 추가 실패: ${error.message}`)
+
+  revalidatePath('/admin/users')
+  revalidatePath(`/admin/users/${targetUserId}`)
+  goWithMessage(returnTo, `${title} 직책이 추가되었습니다.`)
+}
+
+export async function removeUserExecutiveTitle(formData: FormData) {
+  const { adminCtx } = await requireAdmin()
+  if (!canChangeUserType(adminCtx)) redirect('/home')
+
+  const adminClient = createAdminClient()
+  const positionId = toText(formData.get('position_id'))
+  const targetUserId = toText(formData.get('target_user_id'))
+  const returnTo = toText(formData.get('return_to')) || '/admin/users'
+
+  if (!positionId) goWithMessage(returnTo, 'ID가 없습니다.')
+
+  const endedAt = new Date().toISOString().slice(0, 10)
+  const { error } = await adminClient
+    .from('executive_positions')
+    .update({ ended_at: endedAt })
+    .eq('id', positionId)
+
+  if (error) goWithMessage(returnTo, `직책 제거 실패: ${error.message}`)
+
+  revalidatePath('/admin/users')
+  revalidatePath(`/admin/users/${targetUserId}`)
+  goWithMessage(returnTo, '직책이 제거되었습니다.')
 }
 
 export async function upsertAdminNote(formData: FormData) {

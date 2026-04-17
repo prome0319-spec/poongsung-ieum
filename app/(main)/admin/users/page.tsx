@@ -10,7 +10,22 @@ import {
   ALL_SYSTEM_ROLES,
 } from '@/lib/utils/permissions'
 import { loadUserContext } from '@/lib/utils/user-context'
-import type { SystemRole } from '@/types/user'
+import type { SystemRole, ExecutiveTitle } from '@/types/user'
+
+type ExecRow = { user_id: string; title: ExecutiveTitle }
+type PmLeaderListRow = { user_id: string; is_head: boolean; pm_groups: { name: string } | null }
+type TeamLeaderListRow = { user_id: string; role: string; teams: { name: string; leader_title: string } | null }
+
+const EXEC_BADGE: Record<ExecutiveTitle, { bg: string; color: string; emoji: string }> = {
+  '담당목사':   { bg: '#fdf4ff', color: '#6b21a8', emoji: '✝️' },
+  '회장':       { bg: '#fef3c7', color: '#78350f', emoji: '👑' },
+  '청년부회장': { bg: '#fef3c7', color: '#92400e', emoji: '🌟' },
+  '부회장':     { bg: '#fff7ed', color: '#9a3412', emoji: '⭐' },
+  '회계':       { bg: '#f0fdf4', color: '#14532d', emoji: '💰' },
+  '사역국장':   { bg: '#eff6ff', color: '#1e3a8a', emoji: '🎵' },
+  '목양국장':   { bg: '#f0fdfa', color: '#134e4a', emoji: '🌿' },
+  '군지음팀장': { bg: '#f0f4ef', color: '#3d5a35', emoji: '🎖️' },
+}
 
 type ActivityFilter = 'all' | 'active' | 'stale' | 'inactive'
 type SortType = 'recent_activity' | 'inactive_first' | 'recent_signup' | 'name'
@@ -157,6 +172,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
   const cutoff30dIso = new Date(Date.now() - 30 * 86_400_000).toISOString()
 
   let posts: ActivityRow[] = [], comments: ActivityRow[] = [], chats: ActivityRow[] = [], myNotes: NoteRow[] = []
+  let execRows: ExecRow[] = [], pmLeaderRows: PmLeaderListRow[] = [], teamLeaderRows: TeamLeaderListRow[] = []
 
   if (userIds.length > 0) {
     const [
@@ -164,16 +180,47 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
       { data: commentsData },
       { data: chatsData },
       { data: notesData },
+      { data: execData },
+      { data: pmLeaderData },
+      { data: teamLeaderData },
     ] = await Promise.all([
       supabase.from('posts').select('author_id, created_at').in('author_id', userIds).order('created_at', { ascending: false }),
       supabase.from('comments').select('author_id, created_at').in('author_id', userIds).order('created_at', { ascending: false }),
       supabase.from('chat_messages').select('sender_id, created_at').in('sender_id', userIds).order('created_at', { ascending: false }),
       supabase.from('admin_notes').select('target_user_id, content, updated_at').eq('author_id', user.id).in('target_user_id', userIds),
+      supabase.from('executive_positions').select('user_id, title').in('user_id', userIds).is('ended_at', null),
+      supabase.from('pm_group_leaders').select('user_id, is_head, pm_groups(name)').in('user_id', userIds).is('ended_at', null),
+      supabase.from('team_members').select('user_id, role, teams(name, leader_title)').in('user_id', userIds).is('left_at', null).eq('role', 'leader'),
     ])
     posts = postsData ?? []
     comments = commentsData ?? []
     chats = chatsData ?? []
     myNotes = notesData ?? []
+    execRows = (execData ?? []) as ExecRow[]
+    pmLeaderRows = ((pmLeaderData ?? []) as any[]).map((r) => ({
+      user_id: r.user_id,
+      is_head: r.is_head,
+      pm_groups: Array.isArray(r.pm_groups) ? (r.pm_groups[0] ?? null) : r.pm_groups,
+    })) as PmLeaderListRow[]
+    teamLeaderRows = ((teamLeaderData ?? []) as any[]).map((r) => ({
+      user_id: r.user_id,
+      role: r.role,
+      teams: Array.isArray(r.teams) ? (r.teams[0] ?? null) : r.teams,
+    })) as TeamLeaderListRow[]
+  }
+
+  // 역할 맵 구성
+  const execByUser = new Map<string, ExecutiveTitle[]>()
+  for (const r of execRows) {
+    execByUser.set(r.user_id, [...(execByUser.get(r.user_id) ?? []), r.title])
+  }
+  const pmLeaderByUser = new Map<string, PmLeaderListRow[]>()
+  for (const r of pmLeaderRows) {
+    pmLeaderByUser.set(r.user_id, [...(pmLeaderByUser.get(r.user_id) ?? []), r])
+  }
+  const teamLeaderByUser = new Map<string, TeamLeaderListRow[]>()
+  for (const r of teamLeaderRows) {
+    teamLeaderByUser.set(r.user_id, [...(teamLeaderByUser.get(r.user_id) ?? []), r])
   }
 
   function buildMap(rows: ActivityRow[], key: 'author_id' | 'sender_id') {
@@ -336,6 +383,14 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
           users.map((member) => {
             const { label: actLabel, bg: actBg, color: actColor } = ACTIVITY_META[member.activityStatus]
             const isSoldierType = member.is_soldier
+            const memberExecTitles = execByUser.get(member.id) ?? []
+            const memberPmLeaders = pmLeaderByUser.get(member.id) ?? []
+            const memberTeamLeaders = teamLeaderByUser.get(member.id) ?? []
+            const sysRoleMeta = member.system_role === 'admin'
+              ? { bg: '#fef2f2', color: '#991b1b' }
+              : member.system_role === 'pastor'
+                ? { bg: '#f5f3ff', color: '#5b21b6' }
+                : { bg: 'var(--primary-soft)', color: 'var(--primary-dark)' }
 
             return (
               <article
@@ -352,7 +407,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'start' }}>
-                    <span style={{ padding: '4px 10px', borderRadius: 999, background: 'var(--primary-soft)', color: 'var(--primary)', fontSize: 12, fontWeight: 600 }}>
+                    <span style={{ padding: '4px 10px', borderRadius: 999, background: sysRoleMeta.bg, color: sysRoleMeta.color, fontSize: 12, fontWeight: 600 }}>
                       {getUserTypeLabel(member.system_role, member.is_soldier)}
                     </span>
                     <span style={{ padding: '4px 10px', borderRadius: 999, background: actBg, color: actColor, fontSize: 12, fontWeight: 600 }}>
@@ -363,6 +418,30 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
                     </span>
                   </div>
                 </div>
+
+                {/* 역할 뱃지 (임원단·PM지기·팀장) */}
+                {(memberExecTitles.length > 0 || memberPmLeaders.length > 0 || memberTeamLeaders.length > 0) && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                    {memberExecTitles.map((title) => {
+                      const m = EXEC_BADGE[title]
+                      return (
+                        <span key={title} style={{ padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: m.bg, color: m.color, border: `1px solid ${m.color}33` }}>
+                          {m.emoji} {title}
+                        </span>
+                      )
+                    })}
+                    {memberPmLeaders.map((pl, i) => (
+                      <span key={i} style={{ padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: '#fffbeb', color: '#78350f', border: '1px solid #fde68a' }}>
+                        {pl.is_head ? '👑 지기장' : '🏠 PM지기'} {pl.pm_groups?.name ? `(${pl.pm_groups.name})` : ''}
+                      </span>
+                    ))}
+                    {memberTeamLeaders.map((tl, i) => (
+                      <span key={i} style={{ padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: '#f3f4f6', color: '#1f2937', border: '1px solid #d1d5db' }}>
+                        ⚑ {tl.teams?.name ?? ''} {tl.teams?.leader_title ?? '팀장'}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', fontSize: 13 }}>
                   <InfoItem label="가입일" value={formatDate(member.created_at)} />
