@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 import { canManageSchedule, canDeleteSchedule } from '@/lib/utils/permissions'
 import type { SystemRole } from '@/types/user'
@@ -233,7 +234,8 @@ export async function updateSchedule(formData: FormData) {
     redirect(`/admin/calendar/${scheduleId}/edit?error=invalid_date_range`)
   }
 
-  const { error } = await supabase
+  const admin = createAdminClient()
+  const { error } = await admin
     .from('schedules')
     .update({
       title,
@@ -244,13 +246,7 @@ export async function updateSchedule(formData: FormData) {
       start_at: startAt,
       end_at: endAt,
       updated_at: new Date().toISOString(),
-      // 반복 필드 초기화 (기존 반복 일정도 개별 일정으로 전환)
       is_recurring: false,
-      recurrence_type: null,
-      recurrence_day_of_week: null,
-      recurrence_end_date: null,
-      base_start_time: null,
-      base_end_time: null,
     })
     .eq('id', scheduleId)
 

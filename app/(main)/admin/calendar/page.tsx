@@ -6,6 +6,7 @@ import { canManageSchedule, canDeleteSchedule } from '@/lib/utils/permissions'
 import { createSchedule, bulkCreateSchedules, deleteSchedule } from '@/app/(main)/calendar/actions'
 import DatePicker from '@/components/common/DatePicker'
 import DateTimePicker from '@/components/common/DateTimePicker'
+import TimePicker from '@/components/common/TimePicker'
 
 type ScheduleCategory = 'worship' | 'meeting' | 'event' | 'service' | 'general'
 type Audience = 'all' | 'soldier' | 'general'
@@ -198,10 +199,10 @@ export default async function AdminCalendarPage({
               <DatePicker name="end_date" required placeholder="종료일 선택" />
             </FormField>
             <FormField label="시작 시각 *">
-              <input name="start_time" type="time" required defaultValue="11:00" style={INPUT_STYLE} />
+              <TimePicker name="start_time" required defaultValue="11:00" placeholder="시작 시각" />
             </FormField>
             <FormField label="종료 시각 *">
-              <input name="end_time" type="time" required defaultValue="12:30" style={INPUT_STYLE} />
+              <TimePicker name="end_time" required defaultValue="12:30" placeholder="종료 시각" />
             </FormField>
           </div>
 
