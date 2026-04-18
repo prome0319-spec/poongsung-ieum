@@ -4,11 +4,74 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type PageProps = {
-  searchParams: Promise<{ token?: string }>
+  searchParams: Promise<{ token?: string; mode?: string }>
+}
+
+function getTodayStr() {
+  const t = new Date()
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
 }
 
 export default async function CheckinPage({ searchParams }: PageProps) {
-  const { token } = await searchParams
+  const { token, mode } = await searchParams
+
+  // ── 영구 QR (static mode) ──────────────────────────────
+  if (mode === 'static') {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) redirect('/login?next=/attendance/checkin?mode=static')
+
+    const adminClient = createAdminClient()
+    const todayStr = getTodayStr()
+    const eventTitle = '주일예배'
+
+    const { data: myProfile } = await supabase
+      .from('profiles')
+      .select('id, name, nickname, pm_group_id')
+      .eq('id', user.id)
+      .single()
+
+    const { data: existing } = await adminClient
+      .from('attendance_records')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('event_date', todayStr)
+      .eq('event_title', eventTitle)
+      .maybeSingle()
+
+    if (!existing) {
+      await adminClient.from('attendance_records').insert({
+        user_id: user.id,
+        event_date: todayStr,
+        event_title: eventTitle,
+        status: 'present',
+        pm_group_id: myProfile?.pm_group_id ?? null,
+        recorded_by: user.id,
+        checked_via: 'qr',
+      })
+    }
+
+    const displayName = (myProfile?.nickname || myProfile?.name || '').trim() || '멤버'
+    const alreadyChecked = !!existing
+
+    return (
+      <main className="page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '16px' }}>
+        <div style={{ fontSize: '56px' }}>{alreadyChecked ? '✅' : '🎉'}</div>
+        <h1 className="page-title" style={{ textAlign: 'center' }}>
+          {alreadyChecked ? '이미 체크인 완료' : '출석 완료!'}
+        </h1>
+        <div className="card" style={{ textAlign: 'center', padding: '20px 24px', width: '100%' }}>
+          <p style={{ margin: '0 0 8px', fontSize: '20px', fontWeight: 800, color: 'var(--primary)' }}>{displayName}</p>
+          <p style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700 }}>{eventTitle}</p>
+          <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-muted)' }}>{todayStr}</p>
+        </div>
+        <p style={{ color: alreadyChecked ? 'var(--text-muted)' : 'var(--success)', textAlign: 'center', margin: 0, fontSize: '15px', fontWeight: 600 }}>
+          {alreadyChecked ? '이미 출석이 기록되어 있습니다.' : '출석이 기록되었습니다.'}
+        </p>
+        <Link href="/home" className="button" style={{ marginTop: '8px', width: 'auto', padding: '0 32px' }}>홈으로</Link>
+      </main>
+    )
+  }
 
   if (!token) {
     return (

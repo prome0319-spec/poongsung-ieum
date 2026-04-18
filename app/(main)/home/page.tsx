@@ -169,13 +169,13 @@ function getQuickLinks(systemRole: SystemRole): QuickLink[] {
     return [
       { href: '/admin/calendar', title: '일정 관리', description: '일정 등록·수정', icon: '📅', iconClass: 'purple' },
       { href: '/admin/counseling', title: '상담 관리', description: '멤버 상담 신청', icon: '🤝', iconClass: 'green' },
-      { href: '/admin/volunteer', title: '봉사 관리', description: '봉사 일정 등록', icon: '✋', iconClass: '' },
+      { href: '/members', title: '멤버 목록', description: '청년부 멤버 보기', icon: '👥', iconClass: '' },
       { href: '/community', title: '커뮤니티', description: '공지와 게시글', icon: '📋', iconClass: '' },
     ]
   }
   return [
     { href: '/chat', title: '채팅', description: '소통방과 대화', icon: '💬', iconClass: 'kakao' },
-    { href: '/volunteer', title: '봉사 신청', description: '봉사 일정 확인', icon: '✋', iconClass: 'green' },
+    { href: '/members', title: '멤버 목록', description: '청년부 멤버 보기', icon: '👥', iconClass: '' },
     { href: '/counseling', title: '상담 신청', description: '목사님께 상담 요청', icon: '🤝', iconClass: '' },
     { href: '/calendar', title: '캘린더', description: '다가오는 일정', icon: '📅', iconClass: 'purple' },
   ]
@@ -456,6 +456,35 @@ export default async function HomePage() {
             프로필
           </Link>
         </div>
+
+        {/* ── 관리자 바로가기 (admin/pastor만) ── */}
+        {(profile.system_role === 'admin' || profile.system_role === 'pastor') && (
+          <Link
+            href="/admin"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '14px 16px',
+              background: 'linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-light) 100%)',
+              borderRadius: 'var(--r-lg)',
+              textDecoration: 'none',
+              boxShadow: 'var(--shadow-sm)',
+            }}
+          >
+            <div style={{
+              width: 40, height: 40, borderRadius: 'var(--r-sm)',
+              background: 'rgba(255,255,255,0.2)', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 20, flexShrink: 0,
+            }}>🛡️</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: 14, color: '#fff' }}>관리자 페이지</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 1 }}>
+                대시보드·사용자·출석·예산 관리
+              </div>
+            </div>
+            <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 18 }}>›</span>
+          </Link>
+        )}
 
         {/* ── D-Day 카드 (군인만) ── */}
         {isSoldier && ddayInfo.days !== null && (

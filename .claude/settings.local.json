@@ -5,7 +5,9 @@
       "Bash(npm run:*)",
       "Bash(node -e ' *)",
       "Bash(npm install *)",
-      "Bash(npx next *)"
+      "Bash(npx next *)",
+      "Bash(find \"c:\\\\Program Files\\\\Git\\\\poongsung-ieum\\\\supabase\\\\migrations\" -type f -name \"*.sql\" -exec grep -l \"attendance_records\" {} \\\\;)",
+      "Bash(find \"c:\\\\Program Files\\\\Git\\\\poongsung-ieum\\\\supabase\\\\migrations\" -name \"*.sql\" -exec grep -l \"CREATE TABLE.*attendance_records\" {} \\\\;)"
     ]
   }
 }

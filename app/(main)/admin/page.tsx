@@ -12,6 +12,7 @@ import {
   canAccessSoldierAdmin,
   canManageOrg,
   isAdminOrPastor,
+  canViewBudget,
 } from '@/lib/utils/permissions'
 import type { SystemRole } from '@/types/user'
 
@@ -296,6 +297,8 @@ export default async function AdminDashboardPage() {
     { href: '/admin/volunteer',   emoji: '✋', category: '봉사',     title: '봉사 관리',      desc: '일정 등록·신청 현황',               visible: hasPastorLevelAccess(ctx) },
     { href: '/admin/chat-rooms',  emoji: '💬', category: '채팅',     title: '채팅방 관리',    desc: '공지형·일반 채팅방 설정',           visible: canAccessAdminUsers(ctx) },
     { href: '/admin/birthdays',   emoji: '🎂', category: '생일',     title: '생일 관리',      desc: '이번 달·다가오는 생일 확인',        visible: hasPastorLevelAccess(ctx) },
+    { href: '/admin/budget',      emoji: '💰', category: '재정',     title: '예산 관리',      desc: '수입·지출 예산 및 결산',            visible: canViewBudget(ctx) },
+    { href: '/admin/attendance-sheet', emoji: '📊', category: '출석', title: '출석부 (엑셀)', desc: '전체 멤버 출석부 관리',           visible: canViewAttendance(ctx) },
   ]
   const visibleCards = cards.filter((c) => c.visible)
 

@@ -225,3 +225,16 @@ export const ALL_USER_TYPES = ALL_SYSTEM_ROLES as unknown as {
 export function isSoldier(isSoldierFlag: boolean | null | undefined): boolean {
   return isSoldierFlag === true
 }
+
+/** 예산 열람 권한: 관리자, 목사, 회장, 부회장, 목양국장, 사역국장, 회계 */
+export function canViewBudget(ctx: UserContext): boolean {
+  if (isAdminOrPastor(ctx.profile.system_role)) return true
+  const viewTitles: ExecutiveTitle[] = ['회장', '청년부회장', '부회장', '목양국장', '사역국장', '회계']
+  return ctx.executiveTitles.some((t) => viewTitles.includes(t))
+}
+
+/** 예산 수정 권한: 관리자, 회계 */
+export function canManageBudget(ctx: UserContext): boolean {
+  if (ctx.profile.system_role === 'admin') return true
+  return ctx.executiveTitles.includes('회계')
+}

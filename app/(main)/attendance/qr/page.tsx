@@ -118,7 +118,22 @@ export default async function QrPage({ searchParams }: PageProps) {
         </form>
       </div>
 
-      <div style={{ marginTop: '16px', textAlign: 'center' }}>
+      <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+        <a
+          href="/attendance/qr/print"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 20px',
+            borderRadius: 'var(--r-lg)',
+            background: 'var(--bg-card)',
+            border: '1.5px solid var(--border)',
+            fontSize: 14, fontWeight: 700,
+            color: 'var(--text)',
+            textDecoration: 'none',
+          }}
+        >
+          🔲 영구 QR 코드 (인쇄용)
+        </a>
         <a
           href="/attendance"
           style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: 600 }}
