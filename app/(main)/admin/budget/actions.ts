@@ -18,21 +18,18 @@ async function requireManage() {
 export async function addCategory(formData: FormData) {
   const userId = await requireManage()
   const name = (formData.get('name') as string)?.trim()
-  const type = formData.get('type') as string
-  if (!name || !['income', 'expense'].includes(type)) return
+  if (!name) return
 
   const admin = createAdminClient()
   const { data: last } = await admin
     .from('budget_categories')
     .select('sort_order')
-    .eq('type', type)
     .order('sort_order', { ascending: false })
     .limit(1)
     .maybeSingle()
 
   await admin.from('budget_categories').insert({
     name,
-    type,
     sort_order: (last?.sort_order ?? 0) + 1,
     created_by: userId,
   })
@@ -51,16 +48,18 @@ export async function deleteCategory(formData: FormData) {
 export async function addTransaction(formData: FormData) {
   const userId = await requireManage()
   const category_id = formData.get('category_id') as string
+  const type = formData.get('type') as string
   const description = (formData.get('description') as string)?.trim()
   const amount = parseInt(formData.get('amount') as string, 10)
   const transaction_date = formData.get('transaction_date') as string
   const notes = (formData.get('notes') as string)?.trim() || null
 
-  if (!category_id || !description || isNaN(amount) || !transaction_date) return
+  if (!category_id || !description || isNaN(amount) || !transaction_date || !['income','expense'].includes(type)) return
 
   const admin = createAdminClient()
   await admin.from('budget_transactions').insert({
     category_id,
+    type,
     description,
     amount,
     transaction_date,

@@ -22,6 +22,11 @@ export async function createClient() {
           }
         },
       },
+      global: {
+        // Next.js Data Cache를 완전히 우회하여 항상 최신 DB 데이터를 반환
+        fetch: (url: RequestInfo | URL, options: RequestInit = {}) =>
+          fetch(url, { ...options, cache: 'no-store' }),
+      },
     }
   )
 }

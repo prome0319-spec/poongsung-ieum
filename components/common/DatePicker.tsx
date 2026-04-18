@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 
 interface DatePickerProps {
   name: string
@@ -50,22 +51,11 @@ function makeDateStr(y: number, m: number, d: number): string {
 }
 
 const NAV_BTN: React.CSSProperties = {
-  width: 32,
-  height: 32,
-  borderRadius: '50%',
-  border: '1.5px solid var(--border)',
-  background: 'var(--bg-card)',
-  color: 'var(--text)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  cursor: 'pointer',
-  fontSize: 18,
-  fontWeight: 700,
-  flexShrink: 0,
-  lineHeight: 1,
-  padding: 0,
-  transition: 'background 0.12s, border-color 0.12s',
+  width: 32, height: 32, borderRadius: '50%',
+  border: '1.5px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  cursor: 'pointer', fontSize: 18, fontWeight: 700, flexShrink: 0,
+  lineHeight: 1, padding: 0, transition: 'background 0.12s, border-color 0.12s',
 }
 
 export default function DatePicker({
@@ -79,19 +69,57 @@ export default function DatePicker({
 }: DatePickerProps) {
   const [value, setValue] = useState(defaultValue)
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({})
 
   const initParsed = parseDate(defaultValue)
   const today = new Date()
   const [viewYear, setViewYear] = useState(initParsed?.y ?? today.getFullYear())
   const [viewMonth, setViewMonth] = useState(initParsed?.m ?? (today.getMonth() + 1))
 
-  const containerRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const todayStr = getTodayStr()
 
+  useEffect(() => { setMounted(true) }, [])
+
+  const calcPosition = useCallback(() => {
+    const btn = buttonRef.current
+    if (!btn) return
+    const rect = btn.getBoundingClientRect()
+    const vh = window.innerHeight
+    const dropH = 380
+    const spaceBelow = vh - rect.bottom - 8
+    const openUp = spaceBelow < dropH && rect.top > spaceBelow
+
+    const width = Math.max(280, Math.min(rect.width, 340))
+
+    setDropdownStyle({
+      position: 'fixed',
+      left: Math.min(rect.left, window.innerWidth - width - 8),
+      width,
+      zIndex: 9999,
+      ...(openUp
+        ? { bottom: vh - rect.top + 8 }
+        : { top: rect.bottom + 8 }),
+    })
+  }, [])
+
+  function handleToggle() {
+    if (disabled) return
+    if (!open) calcPosition()
+    setOpen((o) => !o)
+  }
+
+  // outside click
   useEffect(() => {
     if (!open) return
     function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const t = e.target as Node
+      if (
+        !buttonRef.current?.contains(t) &&
+        !dropdownRef.current?.contains(t)
+      ) {
         setOpen(false)
       }
     }
@@ -99,68 +127,171 @@ export default function DatePicker({
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
+  // reposition on scroll / resize while open
+  useEffect(() => {
+    if (!open) return
+    window.addEventListener('scroll', calcPosition, true)
+    window.addEventListener('resize', calcPosition)
+    return () => {
+      window.removeEventListener('scroll', calcPosition, true)
+      window.removeEventListener('resize', calcPosition)
+    }
+  }, [open, calcPosition])
+
   function prevMonth() {
-    if (viewMonth === 1) { setViewYear(y => y - 1); setViewMonth(12) }
-    else { setViewMonth(m => m - 1) }
+    if (viewMonth === 1) { setViewYear((y) => y - 1); setViewMonth(12) }
+    else setViewMonth((m) => m - 1)
   }
   function nextMonth() {
-    if (viewMonth === 12) { setViewYear(y => y + 1); setViewMonth(1) }
-    else { setViewMonth(m => m + 1) }
+    if (viewMonth === 12) { setViewYear((y) => y + 1); setViewMonth(1) }
+    else setViewMonth((m) => m + 1)
   }
+  function prevYear() { setViewYear((y) => y - 1) }
+  function nextYear() { setViewYear((y) => y + 1) }
 
-  function selectDay(dayStr: string) {
-    setValue(dayStr)
-    setOpen(false)
-  }
+  function selectDay(dayStr: string) { setValue(dayStr); setOpen(false) }
+  function clearValue() { setValue(''); setOpen(false) }
 
-  function clearValue() {
-    setValue('')
-    setOpen(false)
-  }
-
-  // Build calendar cells
   const daysInMonth = getDaysInMonth(viewYear, viewMonth)
   const firstWeekday = getFirstWeekday(viewYear, viewMonth)
   const cells: (string | null)[] = []
   for (let i = 0; i < firstWeekday; i++) cells.push(null)
-  for (let d = 1; d <= daysInMonth; d++) {
-    cells.push(makeDateStr(viewYear, viewMonth, d))
-  }
+  for (let d = 1; d <= daysInMonth; d++) cells.push(makeDateStr(viewYear, viewMonth, d))
   while (cells.length % 7 !== 0) cells.push(null)
 
+  const dropdown = (
+    <div
+      ref={dropdownRef}
+      style={{
+        ...dropdownStyle,
+        background: 'var(--bg-card)',
+        border: '1.5px solid var(--primary-border)',
+        borderRadius: 'var(--r-lg)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+        padding: '16px 14px 14px',
+      }}
+    >
+      {/* 연도 / 월 네비게이션 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 4 }}>
+        <button type="button" onClick={prevYear} style={{ ...NAV_BTN, fontSize: 14 }} title="작년">«</button>
+        <button type="button" onClick={prevMonth} style={NAV_BTN}>‹</button>
+        <span style={{ fontWeight: 900, fontSize: 15, color: 'var(--text)', flex: 1, textAlign: 'center' }}>
+          {viewYear}년 {viewMonth}월
+        </span>
+        <button type="button" onClick={nextMonth} style={NAV_BTN}>›</button>
+        <button type="button" onClick={nextYear} style={{ ...NAV_BTN, fontSize: 14 }} title="내년">»</button>
+      </div>
+
+      {/* 요일 헤더 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 6 }}>
+        {WEEKDAY.map((w, i) => (
+          <div key={w} style={{
+            textAlign: 'center', fontSize: 11, fontWeight: 700, padding: '3px 0',
+            color: i === 0 ? '#dc2626' : i === 6 ? '#2563eb' : 'var(--text-muted)',
+          }}>
+            {w}
+          </div>
+        ))}
+      </div>
+
+      {/* 날짜 셀 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+        {cells.map((cell, idx) => {
+          if (!cell) return <div key={`e-${idx}`} />
+          const isSelected = cell === value
+          const isToday = cell === todayStr
+          const isDisabled = Boolean((min && cell < min) || (max && cell > max))
+          const colIdx = idx % 7
+          const dayNum = parseInt(cell.split('-')[2])
+          return (
+            <button
+              key={cell}
+              type="button"
+              disabled={isDisabled}
+              onClick={() => !isDisabled && selectDay(cell)}
+              style={{
+                width: '100%', aspectRatio: '1', border: 'none', borderRadius: '50%',
+                background: isSelected ? 'var(--primary)' : isToday ? 'var(--primary-soft)' : 'transparent',
+                color: isSelected ? '#fff'
+                  : isDisabled ? 'var(--text-soft)'
+                  : colIdx === 0 ? '#dc2626'
+                  : colIdx === 6 ? '#2563eb'
+                  : 'var(--text)',
+                fontSize: 13, fontWeight: isSelected || isToday ? 700 : 500,
+                cursor: isDisabled ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: isToday && !isSelected ? '0 0 0 1.5px var(--primary-border)' : 'none',
+                transition: 'background 0.12s', padding: 0, fontFamily: 'inherit',
+                opacity: isDisabled ? 0.35 : 1,
+              }}
+            >
+              {dayNum}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* 오늘 / 선택 취소 */}
+      <div style={{
+        marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8,
+      }}>
+        <button
+          type="button"
+          onClick={() => {
+            const t = new Date()
+            setViewYear(t.getFullYear())
+            setViewMonth(t.getMonth() + 1)
+            selectDay(todayStr)
+          }}
+          style={{
+            fontSize: 12, fontWeight: 700, color: 'var(--primary)',
+            background: 'var(--primary-soft)', border: '1px solid var(--primary-border)',
+            borderRadius: 'var(--r-pill)', padding: '5px 12px',
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          오늘
+        </button>
+        {value && (
+          <button
+            type="button"
+            onClick={clearValue}
+            style={{
+              fontSize: 12, color: 'var(--text-muted)', background: 'none',
+              border: 'none', cursor: 'pointer', padding: '5px 0', fontFamily: 'inherit',
+            }}
+          >
+            선택 취소
+          </button>
+        )}
+      </div>
+    </div>
+  )
+
   return (
-    <div ref={containerRef} style={{ position: 'relative' }}>
+    <div style={{ position: 'relative' }}>
       <input type="hidden" name={name} value={value} required={required} />
 
       <button
+        ref={buttonRef}
         type="button"
         disabled={disabled}
-        onClick={() => !disabled && setOpen(o => !o)}
+        onClick={handleToggle}
         style={{
-          width: '100%',
-          padding: '12px 14px',
-          border: open
-            ? '1.5px solid var(--primary)'
-            : '1.5px solid var(--border-strong)',
-          borderRadius: 'var(--r-sm)',
-          background: disabled ? 'var(--bg-section)' : 'var(--bg-card)',
-          color: value ? 'var(--text)' : 'var(--text-soft)',
-          fontSize: 15,
-          textAlign: 'left',
+          width: '100%', padding: '12px 14px',
+          border: open ? '1.5px solid var(--primary)' : '1.5px solid var(--border-strong)',
+          borderRadius: 'var(--r-sm)', background: disabled ? 'var(--bg-section)' : 'var(--bg-card)',
+          color: value ? 'var(--text)' : 'var(--text-soft)', fontSize: 15, textAlign: 'left',
           cursor: disabled ? 'not-allowed' : 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 8,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
           boxShadow: open
             ? '0 0 0 3px rgba(124, 107, 196, 0.14)'
             : 'inset 0 1px 2px rgba(100, 80, 160, 0.03)',
-          transition: 'border-color 0.15s, box-shadow 0.15s',
-          fontFamily: 'inherit',
+          transition: 'border-color 0.15s, box-shadow 0.15s', fontFamily: 'inherit',
         }}
       >
         <span>{value ? formatDisplay(value) : placeholder}</span>
-        {/* Calendar icon */}
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
           style={{ color: 'var(--text-muted)', flexShrink: 0 }}
@@ -172,171 +303,7 @@ export default function DatePicker({
         </svg>
       </button>
 
-      {open && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 8px)',
-            left: 0,
-            zIndex: 300,
-            background: 'var(--bg-card)',
-            border: '1.5px solid var(--primary-border)',
-            borderRadius: 'var(--r-lg)',
-            boxShadow: 'var(--shadow-lg)',
-            padding: '16px 14px 14px',
-            minWidth: 280,
-            width: '100%',
-            maxWidth: 340,
-          }}
-        >
-          {/* Month / Year navigation */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 14,
-            gap: 8,
-          }}>
-            <button type="button" onClick={prevMonth} style={NAV_BTN}>‹</button>
-            <span style={{ fontWeight: 900, fontSize: 15, color: 'var(--text)' }}>
-              {viewYear}년 {viewMonth}월
-            </span>
-            <button type="button" onClick={nextMonth} style={NAV_BTN}>›</button>
-          </div>
-
-          {/* Weekday headers */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7, 1fr)',
-            gap: 2,
-            marginBottom: 6,
-          }}>
-            {WEEKDAY.map((w, i) => (
-              <div key={w} style={{
-                textAlign: 'center',
-                fontSize: 11,
-                fontWeight: 700,
-                padding: '3px 0',
-                color: i === 0 ? '#dc2626' : i === 6 ? '#2563eb' : 'var(--text-muted)',
-              }}>
-                {w}
-              </div>
-            ))}
-          </div>
-
-          {/* Day cells */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7, 1fr)',
-            gap: 2,
-          }}>
-            {cells.map((cell, idx) => {
-              if (!cell) return <div key={`e-${idx}`} />
-              const isSelected = cell === value
-              const isToday = cell === todayStr
-              const isDisabled = Boolean((min && cell < min) || (max && cell > max))
-              const colIdx = idx % 7
-              const dayNum = parseInt(cell.split('-')[2])
-
-              return (
-                <button
-                  key={cell}
-                  type="button"
-                  disabled={isDisabled}
-                  onClick={() => !isDisabled && selectDay(cell)}
-                  style={{
-                    width: '100%',
-                    aspectRatio: '1',
-                    border: 'none',
-                    borderRadius: '50%',
-                    background: isSelected
-                      ? 'var(--primary)'
-                      : isToday
-                        ? 'var(--primary-soft)'
-                        : 'transparent',
-                    color: isSelected
-                      ? '#fff'
-                      : isDisabled
-                        ? 'var(--text-soft)'
-                        : colIdx === 0
-                          ? '#dc2626'
-                          : colIdx === 6
-                            ? '#2563eb'
-                            : 'var(--text)',
-                    fontSize: 13,
-                    fontWeight: isSelected || isToday ? 700 : 500,
-                    cursor: isDisabled ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: isToday && !isSelected
-                      ? '0 0 0 1.5px var(--primary-border)'
-                      : 'none',
-                    transition: 'background 0.12s',
-                    padding: 0,
-                    fontFamily: 'inherit',
-                    opacity: isDisabled ? 0.35 : 1,
-                  }}
-                >
-                  {dayNum}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Today shortcut + Clear */}
-          <div style={{
-            marginTop: 12,
-            paddingTop: 10,
-            borderTop: '1px solid var(--border)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 8,
-          }}>
-            <button
-              type="button"
-              onClick={() => {
-                const t = new Date()
-                setViewYear(t.getFullYear())
-                setViewMonth(t.getMonth() + 1)
-                selectDay(todayStr)
-              }}
-              style={{
-                fontSize: 12,
-                fontWeight: 700,
-                color: 'var(--primary)',
-                background: 'var(--primary-soft)',
-                border: '1px solid var(--primary-border)',
-                borderRadius: 'var(--r-pill)',
-                padding: '5px 12px',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
-            >
-              오늘
-            </button>
-
-            {value && (
-              <button
-                type="button"
-                onClick={clearValue}
-                style={{
-                  fontSize: 12,
-                  color: 'var(--text-muted)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: '5px 0',
-                  fontFamily: 'inherit',
-                }}
-              >
-                선택 취소
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {open && mounted && createPortal(dropdown, document.body)}
     </div>
   )
 }
