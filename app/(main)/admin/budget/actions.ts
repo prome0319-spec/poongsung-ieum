@@ -48,24 +48,24 @@ export async function deleteCategory(formData: FormData) {
 export async function addTransaction(formData: FormData) {
   const userId = await requireManage()
   const category_id = formData.get('category_id') as string
-  const type = formData.get('type') as string
   const description = (formData.get('description') as string)?.trim()
-  const amount = parseInt(formData.get('amount') as string, 10)
   const transaction_date = formData.get('transaction_date') as string
   const notes = (formData.get('notes') as string)?.trim() || null
 
-  if (!category_id || !description || isNaN(amount) || !transaction_date || !['income','expense'].includes(type)) return
+  const incomeRaw = (formData.get('income_amount') as string)?.replace(/,/g, '') || ''
+  const expenseRaw = (formData.get('expense_amount') as string)?.replace(/,/g, '') || ''
+  const incomeAmount = incomeRaw ? parseInt(incomeRaw, 10) : 0
+  const expenseAmount = expenseRaw ? parseInt(expenseRaw, 10) : 0
+
+  if (!category_id || !description || !transaction_date) return
+  if (!incomeAmount && !expenseAmount) return
 
   const admin = createAdminClient()
-  await admin.from('budget_transactions').insert({
-    category_id,
-    type,
-    description,
-    amount,
-    transaction_date,
-    notes,
-    created_by: userId,
-  })
+  const rows = []
+  if (incomeAmount > 0) rows.push({ category_id, type: 'income',  description, amount: incomeAmount,  transaction_date, notes, created_by: userId })
+  if (expenseAmount > 0) rows.push({ category_id, type: 'expense', description, amount: expenseAmount, transaction_date, notes, created_by: userId })
+
+  await admin.from('budget_transactions').insert(rows)
   redirect(`/admin/budget?cat=${category_id}`)
 }
 
