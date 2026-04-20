@@ -93,7 +93,7 @@ export default async function AdminTrainingPage({ searchParams }: PageProps) {
                 fontSize: 11, fontWeight: 700, color: s.color, whiteSpace: 'nowrap',
               }}>
                 {s.emoji} {s.name}
-                {s.sub && <span style={{ fontWeight: 400, opacity: 0.8 }}> ({s.sub})</span>}
+                {'sub' in s && s.sub && <span style={{ fontWeight: 400, opacity: 0.8 }}> ({s.sub})</span>}
               </div>
               {i < STAGES.length - 1 && <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>→</span>}
             </div>
