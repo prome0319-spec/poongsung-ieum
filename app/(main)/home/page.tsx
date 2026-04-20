@@ -3,9 +3,18 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import HomeNoticePopup from '@/components/home/HomeNoticePopup'
-import { getUserTypeLabel, getUserTypeEmoji, getAllowedAudiences, isAdminOrPastor } from '@/lib/utils/permissions'
+import {
+  getUserTypeLabel, getAllowedAudiences, isAdminOrPastor,
+  canAccessAdminDashboard, canAccessAdminUsers, canManageSchedule,
+  canManageHomeNotice, canViewAttendance, canManagePmGroups,
+  hasPastorLevelAccess, canAccessSoldierAdmin, canManageOrg,
+  canViewBudget, canManageAnyCompanion, canManageClubs,
+  canManageTraining, canManageVisitation, canManageEvents,
+} from '@/lib/utils/permissions'
 import { loadUserContext } from '@/lib/utils/user-context'
 import type { SystemRole, HomeNotice } from '@/types/user'
+
+export const dynamic = 'force-dynamic'
 
 type Profile = {
   id: string
@@ -319,6 +328,27 @@ export default async function HomePage() {
   const avatarSrc = profile?.avatar_url ?? (isSoldier ? '/avatar-soldier.svg' : '/avatar-default.svg')
   const heroBanner = isSoldier ? '/hero-military.svg' : '/hero-church.svg'
 
+  const systemRoleForAdmin = ctx.profile.system_role as SystemRole
+  const adminCards = canAccessAdminDashboard(ctx) ? [
+    { href: '/admin/users',            emoji: '👥', category: '사용자', title: '사용자 관리',    visible: canAccessAdminUsers(ctx) },
+    { href: '/admin/soldiers',         emoji: '🎖️', category: '군지음', title: '군지음 케어',    visible: canAccessSoldierAdmin(ctx) },
+    { href: '/admin/org',              emoji: '🏛️', category: '조직',   title: '조직 관리',      visible: canManageOrg(ctx) },
+    { href: '/admin/pm-groups',        emoji: '🏘️', category: '소그룹', title: 'PM 그룹',        visible: canManagePmGroups(systemRoleForAdmin) },
+    { href: '/admin/calendar',         emoji: '📅', category: '일정',   title: '일정 관리',      visible: canManageSchedule(ctx) },
+    { href: '/admin/notices',          emoji: '📣', category: '공지',   title: '홈 공지 팝업',   visible: canManageHomeNotice(ctx) },
+    { href: '/attendance',             emoji: '📋', category: '출석',   title: '출석 관리',      visible: canViewAttendance(ctx) },
+    { href: '/admin/companion',        emoji: '🤝', category: '케어',   title: '면회·행동 관리', visible: canManageAnyCompanion(ctx) },
+    { href: '/admin/volunteer',        emoji: '✋', category: '봉사',   title: '봉사 관리',      visible: hasPastorLevelAccess(ctx) },
+    { href: '/admin/chat-rooms',       emoji: '💬', category: '채팅',   title: '채팅방 관리',    visible: canAccessAdminUsers(ctx) },
+    { href: '/admin/birthdays',        emoji: '🎂', category: '생일',   title: '생일 관리',      visible: hasPastorLevelAccess(ctx) },
+    { href: '/admin/budget',           emoji: '💰', category: '재정',   title: '예산 관리',      visible: canViewBudget(ctx) },
+    { href: '/admin/attendance-sheet', emoji: '📊', category: '출석',   title: '출석부 (엑셀)',  visible: canViewAttendance(ctx) },
+    { href: '/admin/clubs',            emoji: '🎯', category: '동아리', title: '동아리 관리',    visible: canManageClubs(ctx) },
+    { href: '/admin/training',         emoji: '📚', category: '양육',   title: '양육 과정 관리', visible: canManageTraining(ctx) },
+    { href: '/admin/visitation',       emoji: '🏠', category: '목양',   title: '심방 기록',      visible: canManageVisitation(ctx) },
+    { href: '/admin/events',           emoji: '🎉', category: '행사',   title: '행사 관리',      visible: canManageEvents(ctx) },
+  ].filter((c) => c.visible) : []
+
   return (
     <main className="page-hero">
       {/* ── 홈 공지 팝업 ── */}
@@ -437,7 +467,7 @@ export default async function HomePage() {
               ))}
             </div>
             <p className="muted" style={{ margin: 0, fontSize: '13px' }}>
-              {profile.military_unit || profile.bio || '풍성이음 공동체 멤버'}
+              {profile.military_unit || profile.bio || '지음공동체 멤버'}
             </p>
           </div>
 
@@ -458,33 +488,38 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        {/* ── 관리자 바로가기 (admin/pastor만) ── */}
-        {(profile.system_role === 'admin' || profile.system_role === 'pastor') && (
-          <Link
-            href="/admin"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '14px 16px',
-              background: 'linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-light) 100%)',
-              borderRadius: 'var(--r-lg)',
-              textDecoration: 'none',
-              boxShadow: 'var(--shadow-sm)',
-            }}
-          >
-            <div style={{
-              width: 40, height: 40, borderRadius: 'var(--r-sm)',
-              background: 'rgba(255,255,255,0.2)', color: '#fff',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20, flexShrink: 0,
-            }}>🛡️</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 800, fontSize: 14, color: '#fff' }}>관리자 페이지</div>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 1 }}>
-                대시보드·사용자·출석·예산 관리
-              </div>
+        {/* ── 관리 메뉴 (권한 있는 사용자) ── */}
+        {adminCards.length > 0 && (
+          <div>
+            <div className="section-header-row">
+              <h2 className="section-title">관리 메뉴</h2>
+              <Link href="/admin" className="see-all-link">대시보드 →</Link>
             </div>
-            <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 18 }}>›</span>
-          </Link>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+              {adminCards.map((card) => (
+                <Link
+                  key={card.href}
+                  href={card.href}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    gap: 5, padding: '14px 6px',
+                    borderRadius: 'var(--r-lg)',
+                    background: 'var(--bg-card)',
+                    border: '1.5px solid var(--border)',
+                    textDecoration: 'none', textAlign: 'center',
+                  }}
+                >
+                  <span style={{ fontSize: 24 }}>{card.emoji}</span>
+                  <span style={{ fontSize: 9.5, color: 'var(--primary)', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    {card.category}
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3 }}>
+                    {card.title}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* ── D-Day 카드 (군인만) ── */}
