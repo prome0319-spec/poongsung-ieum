@@ -169,16 +169,16 @@ function getQuickLinks(systemRole: SystemRole): QuickLink[] {
   if (systemRole === 'admin' || systemRole === 'pastor') {
     return [
       { href: '/admin/calendar', title: '일정 관리', description: '일정 등록·수정', icon: '📅', iconClass: 'purple' },
-      { href: '/admin/counseling', title: '상담 관리', description: '멤버 상담 신청', icon: '🤝', iconClass: 'green' },
+      { href: '/admin/companion', title: '면회·행동 관리', description: '신청 확인 및 관리', icon: '🤝', iconClass: 'green' },
       { href: '/members', title: '멤버 목록', description: '청년부 멤버 보기', icon: '👥', iconClass: '' },
-      { href: '/community', title: '커뮤니티', description: '공지와 게시글', icon: '📋', iconClass: '' },
+      { href: '/clubs', title: '동아리', description: '동아리 활동 보기', icon: '🎯', iconClass: '' },
     ]
   }
   return [
-    { href: '/chat', title: '채팅', description: '소통방과 대화', icon: '💬', iconClass: 'kakao' },
+    { href: '/clubs', title: '동아리', description: '동아리 참여하기', icon: '🎯', iconClass: 'purple' },
     { href: '/members', title: '멤버 목록', description: '청년부 멤버 보기', icon: '👥', iconClass: '' },
-    { href: '/counseling', title: '상담 신청', description: '목사님께 상담 요청', icon: '🤝', iconClass: '' },
-    { href: '/calendar', title: '캘린더', description: '다가오는 일정', icon: '📅', iconClass: 'purple' },
+    { href: '/companion', title: '면회·행동 신청', description: '면회·행복한 동행', icon: '🤝', iconClass: '' },
+    { href: '/prayer', title: '기도 게시판', description: '기도 제목 나누기', icon: '🙏', iconClass: '' },
   ]
 }
 

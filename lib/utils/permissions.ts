@@ -238,3 +238,53 @@ export function canManageBudget(ctx: UserContext): boolean {
   if (ctx.profile.system_role === 'admin') return true
   return ctx.executiveTitles.includes('회계')
 }
+
+/** 동아리 관리 권한: 관리자, 목사, 회장, 청년부회장, 부회장 */
+export function canManageClubs(ctx: UserContext): boolean {
+  if (hasPastorLevelAccess(ctx)) return true
+  return ctx.executiveTitles.includes('부회장')
+}
+
+/** 양육 과정 관리 권한: 관리자, 목사, 회장, 목양국장 */
+export function canManageTraining(ctx: UserContext): boolean {
+  return hasPastorLevelAccess(ctx) || ctx.isPastoralDirector
+}
+
+/** 심방 기록 관리 권한: 관리자, 목사, 회장 */
+export function canManageVisitation(ctx: UserContext): boolean {
+  return hasPastorLevelAccess(ctx)
+}
+
+/** 행사 관리 권한: 관리자, 목사, 회장 */
+export function canManageEvents(ctx: UserContext): boolean {
+  return hasPastorLevelAccess(ctx)
+}
+
+/** 면회 신청 관리 권한: 관리자, 목사, 군지음팀장 */
+export function canManageVisit(ctx: UserContext): boolean {
+  if (isAdminOrPastor(ctx.profile.system_role)) return true
+  return ctx.isSoldierTeamLeader
+}
+
+/** 행동(행복한 동행) 신청 관리 권한: 관리자, 목사, 회장 */
+export function canManageCompanion(ctx: UserContext): boolean {
+  if (isAdminOrPastor(ctx.profile.system_role)) return true
+  return ctx.isChairman
+}
+
+/** 면회 또는 행동 중 하나라도 관리 가능 */
+export function canManageAnyCompanion(ctx: UserContext): boolean {
+  return canManageVisit(ctx) || canManageCompanion(ctx)
+}
+
+/**
+ * 관리자 대시보드 접근 가능 여부.
+ * 어떤 관리 권한이라도 있으면 대시보드에 접근해 해당 메뉴를 이용할 수 있도록 허용.
+ */
+export function canAccessAdminDashboard(ctx: UserContext): boolean {
+  if (isAdminOrPastor(ctx.profile.system_role)) return true
+  if (ctx.executiveTitles.length > 0) return true
+  if (ctx.pmGroupIds.length > 0) return true
+  if (ctx.isSoldierTeamLeader) return true
+  return false
+}

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { loadUserContext } from '@/lib/utils/user-context'
 import { hasPastorLevelAccess } from '@/lib/utils/permissions'
+import { sendBirthdayNotifications } from './actions'
 
 type BirthdayProfile = {
   id: string
@@ -192,6 +193,17 @@ export default async function BirthdaysPage() {
           <p className="page-subtitle">멤버들의 생일을 확인하고 챙겨주세요 🎂</p>
         </div>
       </div>
+
+      {/* 생일 알림 전송 */}
+      <form action={sendBirthdayNotifications} style={{ marginBottom: 16 }}>
+        <button type="submit" style={{
+          width: '100%', padding: '11px 20px', borderRadius: 'var(--r-sm)', border: 'none',
+          background: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: 14,
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}>
+          🎂 오늘 생일 알림 전송
+        </button>
+      </form>
 
       {/* 요약 카드 */}
       <div className="card" style={{ marginBottom: 20, display: 'flex', gap: 0 }}>

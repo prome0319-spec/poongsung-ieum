@@ -335,10 +335,22 @@ export default async function BudgetPage({ searchParams }: PageProps) {
         </div>
       )}
 
-      <div style={{ marginTop: 20 }}>
+      <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
         <Link href="/admin" style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 600 }}>
           ← 관리자 대시보드
         </Link>
+        <a
+          href="/api/budget/export"
+          download
+          style={{
+            fontSize: 13, fontWeight: 700, padding: '8px 16px',
+            borderRadius: 'var(--r-sm)', border: '1.5px solid var(--border)',
+            background: 'var(--bg-card)', color: 'var(--text)',
+            textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6,
+          }}
+        >
+          📥 엑셀(CSV) 다운로드
+        </a>
       </div>
     </main>
   )

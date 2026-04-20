@@ -13,7 +13,16 @@ import {
   canManageOrg,
   isAdminOrPastor,
   canViewBudget,
+  canManageAnyCompanion,
+  canManageVisit,
+  canManageCompanion,
+  canAccessAdminDashboard,
+  canManageClubs,
+  canManageTraining,
+  canManageVisitation,
+  canManageEvents,
 } from '@/lib/utils/permissions'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { SystemRole } from '@/types/user'
 
 /* ── 타입 ─────────────────────────────────────────────────── */
@@ -168,7 +177,7 @@ export default async function AdminDashboardPage() {
   if (userError || !user) redirect('/login')
 
   const ctx = await loadUserContext(user.id)
-  if (!canAccessAdminUsers(ctx)) {
+  if (!canAccessAdminDashboard(ctx)) {
     redirect('/home?message=' + encodeURIComponent('권한이 없습니다.'))
   }
 
@@ -179,12 +188,14 @@ export default async function AdminDashboardPage() {
   const next60DaysStr = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   const past90DaysStr = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
+  const adminDb = createAdminClient()
+
   // 병렬 데이터 조회
   const [
     { count: totalMembers },
     { count: soldierCount },
-    { count: pendingCounselingCount },
-    { count: inProgressCounselingCount },
+    { count: pendingCompanionCount },
+    { count: inProgressCompanionCount },
     { count: newThisMonthCount },
     { data: imminentSoldierRows },
     { data: rawDuties },
@@ -194,8 +205,8 @@ export default async function AdminDashboardPage() {
   ] = await Promise.all([
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('onboarding_completed', true),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_soldier', true).eq('onboarding_completed', true),
-    supabase.from('counseling_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-    supabase.from('counseling_requests').select('*', { count: 'exact', head: true }).eq('status', 'in_progress'),
+    adminDb.from('companion_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+    adminDb.from('companion_requests').select('*', { count: 'exact', head: true }).eq('status', 'confirmed'),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('onboarding_completed', true).gte('created_at', thisMonthStart),
     supabase.from('profiles')
       .select('id, name, nickname, discharge_date, military_unit')
@@ -280,8 +291,8 @@ export default async function AdminDashboardPage() {
   const recentPosts = (recentPostRows ?? []) as RecentPost[]
 
   const adminName = displayName(ctx.profile)
-  const totalCounseling = (pendingCounselingCount ?? 0) + (inProgressCounselingCount ?? 0)
-  const hasUrgent = (pendingCounselingCount ?? 0) > 0 || imminentSoldiers.some((s) => s.days <= 7)
+  const totalCompanion = (pendingCompanionCount ?? 0) + (inProgressCompanionCount ?? 0)
+  const hasUrgent = (pendingCompanionCount ?? 0) > 0 || imminentSoldiers.some((s) => s.days <= 7)
 
   // 네비게이션 카드 목록
   type AdminCard = { href: string; emoji: string; category: string; title: string; desc: string; visible: boolean }
@@ -293,14 +304,17 @@ export default async function AdminDashboardPage() {
     { href: '/admin/calendar',    emoji: '📅', category: '일정',     title: '일정 관리',      desc: '예배·행사·모임 일정',               visible: canManageSchedule(ctx) },
     { href: '/admin/notices',     emoji: '📣', category: '공지',     title: '홈 공지 팝업',   desc: '홈 화면 팝업 등록',                 visible: canManageHomeNotice(ctx) },
     { href: '/attendance',        emoji: '📋', category: '출석',     title: '출석 관리',      desc: '출석 체크 및 통계',                 visible: canViewAttendance(ctx) },
-    { href: '/admin/counseling',  emoji: '🤝', category: '상담',     title: '상담 관리',      desc: '신청 확인 및 응답',                 visible: hasPastorLevelAccess(ctx) },
+    { href: '/admin/companion',   emoji: '🤝', category: '케어',     title: '면회·행동 관리', desc: '면회·행복한 동행 신청 관리',         visible: canManageAnyCompanion(ctx) },
     { href: '/admin/volunteer',   emoji: '✋', category: '봉사',     title: '봉사 관리',      desc: '일정 등록·신청 현황',               visible: hasPastorLevelAccess(ctx) },
     { href: '/admin/chat-rooms',  emoji: '💬', category: '채팅',     title: '채팅방 관리',    desc: '공지형·일반 채팅방 설정',           visible: canAccessAdminUsers(ctx) },
     { href: '/admin/birthdays',   emoji: '🎂', category: '생일',     title: '생일 관리',      desc: '이번 달·다가오는 생일 확인',        visible: hasPastorLevelAccess(ctx) },
     { href: '/admin/budget',      emoji: '💰', category: '재정',     title: '예산 관리',      desc: '수입·지출 예산 및 결산',            visible: canViewBudget(ctx) },
     { href: '/admin/attendance-sheet', emoji: '📊', category: '출석', title: '출석부 (엑셀)', desc: '전체 멤버 출석부 관리',           visible: canViewAttendance(ctx) },
+    { href: '/admin/clubs',       emoji: '🎯', category: '동아리',   title: '동아리 관리',    desc: '동아리 생성·멤버 관리',             visible: canManageClubs(ctx) },
+    { href: '/admin/training',   emoji: '📚', category: '양육',     title: '양육 과정 관리', desc: '이수 기록 및 커리큘럼 관리',         visible: canManageTraining(ctx) },
+    { href: '/admin/visitation', emoji: '🏠', category: '목양',     title: '심방 기록',      desc: '심방 내역 기록·관리',               visible: canManageVisitation(ctx) },
+    { href: '/admin/events',     emoji: '🎉', category: '행사',     title: '행사 관리',      desc: '행사 등록·참가 신청',               visible: canManageEvents(ctx) },
   ]
-  const visibleCards = cards.filter((c) => c.visible)
 
   return (
     <main className="page" style={{ paddingBottom: 120 }}>
@@ -349,12 +363,12 @@ export default async function AdminDashboardPage() {
         }}>
           <span style={{ fontSize: 18, flexShrink: 0 }}>🚨</span>
           <div style={{ flex: 1, fontSize: 13 }}>
-            {(pendingCounselingCount ?? 0) > 0 && (
+            {(pendingCompanionCount ?? 0) > 0 && (
               <span style={{ color: 'var(--danger)', fontWeight: 700 }}>
-                미답변 상담 {pendingCounselingCount}건
+                미처리 신청 {pendingCompanionCount}건
               </span>
             )}
-            {(pendingCounselingCount ?? 0) > 0 && imminentSoldiers.some((s) => s.days <= 7) && (
+            {(pendingCompanionCount ?? 0) > 0 && imminentSoldiers.some((s) => s.days <= 7) && (
               <span style={{ color: 'var(--text-muted)', margin: '0 6px' }}>·</span>
             )}
             {imminentSoldiers.some((s) => s.days <= 7) && (
@@ -363,7 +377,7 @@ export default async function AdminDashboardPage() {
               </span>
             )}
           </div>
-          <Link href="/admin/counseling" style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', flexShrink: 0 }}>
+          <Link href="/admin/companion" style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', flexShrink: 0 }}>
             확인 →
           </Link>
         </div>
@@ -379,7 +393,7 @@ export default async function AdminDashboardPage() {
         {[
           { label: '전체 멤버', value: totalMembers ?? 0, sub: `군지음 ${soldierCount ?? 0}명`, href: '/admin/users', color: 'var(--primary)' },
           { label: '이번달 신규', value: newThisMonthCount ?? 0, sub: '온보딩 완료', href: '/admin/users', color: 'var(--success)' },
-          { label: '미답변 상담', value: pendingCounselingCount ?? 0, sub: `처리중 ${inProgressCounselingCount ?? 0}건`, href: '/admin/counseling', color: (pendingCounselingCount ?? 0) > 0 ? 'var(--danger)' : 'var(--text-muted)', alert: (pendingCounselingCount ?? 0) > 0 },
+          { label: '미처리 신청', value: pendingCompanionCount ?? 0, sub: `확정 ${inProgressCompanionCount ?? 0}건`, href: '/admin/companion', color: (pendingCompanionCount ?? 0) > 0 ? 'var(--danger)' : 'var(--text-muted)', alert: (pendingCompanionCount ?? 0) > 0 },
           { label: '예정 봉사', value: upcomingDuties.length, sub: '활성 일정', href: '/admin/volunteer', color: 'var(--warning)' },
           { label: '전역 임박', value: imminentSoldiers.length, sub: '60일 이내', href: '/admin/soldiers', color: imminentSoldiers.length > 0 ? 'var(--military)' : 'var(--text-muted)' },
           { label: '최근 출석률', value: latestAttendanceRate !== null ? `${latestAttendanceRate}%` : '-', sub: '지난 주일', href: '/attendance', color: latestAttendanceRate === null ? 'var(--text-muted)' : latestAttendanceRate >= 80 ? 'var(--success)' : latestAttendanceRate >= 60 ? 'var(--warning)' : 'var(--danger)' },
@@ -611,41 +625,76 @@ export default async function AdminDashboardPage() {
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', marginBottom: 12 }}>관리 메뉴</div>
         <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
-          {visibleCards.map((card) => (
-            <Link
-              key={card.href}
-              href={card.href}
-              style={{
-                display: 'flex', flexDirection: 'column', gap: 10,
-                background: 'var(--bg-card)',
-                border: '1.5px solid var(--border)',
-                borderRadius: 'var(--r-lg)',
-                padding: '14px 14px',
-                textDecoration: 'none',
-                transition: 'box-shadow var(--t-fast), border-color var(--t-fast)',
-              }}
-            >
-              <div style={{
-                width: 38, height: 38, borderRadius: 10,
-                background: 'var(--primary-soft)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 20, flexShrink: 0,
-              }}>
-                {card.emoji}
+          {cards.map((card) =>
+            card.visible ? (
+              <Link
+                key={card.href}
+                href={card.href}
+                style={{
+                  display: 'flex', flexDirection: 'column', gap: 10,
+                  background: 'var(--bg-card)',
+                  border: '1.5px solid var(--border)',
+                  borderRadius: 'var(--r-lg)',
+                  padding: '14px 14px',
+                  textDecoration: 'none',
+                  transition: 'box-shadow var(--t-fast), border-color var(--t-fast)',
+                }}
+              >
+                <div style={{
+                  width: 38, height: 38, borderRadius: 10,
+                  background: 'var(--primary-soft)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 20, flexShrink: 0,
+                }}>
+                  {card.emoji}
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: 'var(--primary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>
+                    {card.category}
+                  </div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>
+                    {card.title}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.4 }}>
+                    {card.desc}
+                  </div>
+                </div>
+              </Link>
+            ) : (
+              <div
+                key={card.href}
+                style={{
+                  display: 'flex', flexDirection: 'column', gap: 10,
+                  background: 'var(--bg-section)',
+                  border: '1.5px solid var(--border)',
+                  borderRadius: 'var(--r-lg)',
+                  padding: '14px 14px',
+                  opacity: 0.45,
+                  position: 'relative',
+                }}
+              >
+                <div style={{
+                  width: 38, height: 38, borderRadius: 10,
+                  background: 'var(--bg-card)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 20, flexShrink: 0,
+                }}>
+                  {card.emoji}
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>
+                    {card.category}
+                  </div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>
+                    {card.title}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.4 }}>
+                    권한 없음
+                  </div>
+                </div>
               </div>
-              <div>
-                <div style={{ fontSize: 10, color: 'var(--primary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>
-                  {card.category}
-                </div>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>
-                  {card.title}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.4 }}>
-                  {card.desc}
-                </div>
-              </div>
-            </Link>
-          ))}
+            )
+          )}
         </div>
       </div>
     </main>
