@@ -72,7 +72,7 @@ export default async function AdminVisitationPage({ searchParams }: PageProps) {
       <div className="card" style={{ padding: '18px', marginBottom: 20 }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', marginBottom: 14 }}>+ 심방 기록 추가</div>
         <form action={addVisitationRecord} style={{ display: 'grid', gap: 12 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="form-grid-2">
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>심방 멤버 *</label>
               <select name="visited_user_id" required defaultValue={filterMember ?? ''} style={INPUT}>
@@ -106,7 +106,7 @@ export default async function AdminVisitationPage({ searchParams }: PageProps) {
       </div>
 
       {/* 필터 */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
         <Link href="/admin/visitation" style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 'var(--r-pill)', textDecoration: 'none', background: !filterMember ? 'var(--primary)' : 'var(--bg-section)', color: !filterMember ? '#fff' : 'var(--text-muted)', border: `1.5px solid ${!filterMember ? 'var(--primary)' : 'var(--border)'}` }}>
           전체
         </Link>

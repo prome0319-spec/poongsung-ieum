@@ -94,7 +94,7 @@ export default async function AdminVolunteerPage({ searchParams }: PageProps) {
         <form action={upsertVolunteerDuty} style={{ display: 'grid', gap: '12px' }}>
           <input type="hidden" name="id" value="" />
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div className="form-grid-2">
             <div className="field">
               <label className="field-label">제목 *</label>
               <input name="title" type="text" className="input" placeholder="예: 주일 예배 찬양팀" required style={{ fontSize: '13px' }} />
@@ -124,7 +124,7 @@ export default async function AdminVolunteerPage({ searchParams }: PageProps) {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div className="form-grid-2">
             <div className="field">
               <label className="field-label">장소</label>
               <input name="location" type="text" className="input" placeholder="예: 비전홀" style={{ fontSize: '13px' }} />

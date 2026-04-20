@@ -495,7 +495,7 @@ export default async function HomePage() {
               <h2 className="section-title">관리 메뉴</h2>
               <Link href="/admin" className="see-all-link">대시보드 →</Link>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(92px, 1fr))', gap: 10 }}>
               {adminCards.map((card) => (
                 <Link
                   key={card.href}

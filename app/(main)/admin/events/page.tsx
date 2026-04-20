@@ -93,7 +93,7 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>행사명 *</label>
             <input name="title" required placeholder="예: 청년부 수련회" style={INPUT} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="form-grid-2">
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>행사 날짜 *</label>
               <DatePicker name="event_date" required placeholder="행사 날짜 선택" />
@@ -103,7 +103,7 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
               <TimePicker name="event_time" placeholder="시작 시각 (선택)" />
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="form-grid-2">
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>분류</label>
               <select name="category" defaultValue="general" style={INPUT}>
@@ -119,7 +119,7 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
               <input name="max_participants" type="number" min={1} placeholder="제한 없음" style={INPUT} />
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="form-grid-2">
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>장소</label>
               <input name="location" placeholder="예: 비전홀, 수련원" style={INPUT} />
@@ -210,15 +210,15 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
                   <form action={updateEvent} style={{ display: 'grid', gap: 12, marginTop: 14 }}>
                     <input type="hidden" name="id" value={ev.id} />
                     <input name="title" defaultValue={ev.title} required style={INPUT} />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div className="form-grid-2">
                       <DatePicker name="event_date" defaultValue={ev.event_date} required />
                       <TimePicker name="event_time" defaultValue={ev.event_time ?? ''} />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div className="form-grid-2">
                       <input name="location" defaultValue={ev.location ?? ''} placeholder="장소" style={INPUT} />
                       <input name="max_participants" type="number" defaultValue={ev.max_participants ?? ''} placeholder="최대 인원" style={INPUT} />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div className="form-grid-2">
                       <DatePicker name="registration_deadline" defaultValue={ev.registration_deadline ?? ''} placeholder="신청 마감일" />
                       <select name="is_active" defaultValue={String(ev.is_active)} style={INPUT}>
                         <option value="true">활성</option>

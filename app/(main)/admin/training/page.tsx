@@ -101,13 +101,13 @@ export default async function AdminTrainingPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 16, alignItems: 'start' }}>
+      <div className="training-layout">
         {/* 멤버 목록 */}
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 800, color: 'var(--text)' }}>
             멤버 ({members.length})
           </div>
-          <div style={{ maxHeight: 600, overflowY: 'auto' }}>
+          <div className="training-member-list">
             {members.map((m) => {
               const done = completionMap.get(m.id)?.size ?? 0
               const isSelected = m.id === selectedMemberId

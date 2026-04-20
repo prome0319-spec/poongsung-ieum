@@ -1363,3 +1363,64 @@ button:focus-visible, a:focus-visible {
   .notice-sheet-footer { background: var(--bg-card); }
   .notice-close-btn { background: var(--primary-soft); }
 }
+
+/* ============================================================
+   RESPONSIVE — Mobile (≤ 640px)
+   ============================================================ */
+
+/* 양육 과정 관리: 데스크탑에서 사이드바 2열 */
+.training-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.training-member-list {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+/* 재정 장부: 가로 스크롤 래퍼 */
+.ledger-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--r-md);
+}
+.ledger-inner {
+  min-width: 400px;
+}
+
+/* 재정 폼 날짜 + 내용 행 */
+.budget-date-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* 이벤트/훈련/심방 2열 폼 그리드 */
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  /* 양육 과정: 세로 스택 */
+  .training-layout {
+    grid-template-columns: 1fr;
+  }
+  .training-member-list {
+    max-height: 220px;
+  }
+
+  /* 재정: 날짜+내용 세로 스택 */
+  .budget-date-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* 이벤트/훈련/심방 폼: 세로 스택 */
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}

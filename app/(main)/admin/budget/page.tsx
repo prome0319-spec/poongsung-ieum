@@ -189,7 +189,7 @@ export default async function BudgetPage({ searchParams }: PageProps) {
                 <input type="hidden" name="category_id" value={activeCat!} />
 
                 {/* 행 1: 날짜 + 내용 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 8, marginBottom: 8 }}>
+                <div className="budget-date-row">
                   <div>
                     <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>날짜</label>
                     <input className="input" name="transaction_date" type="date" defaultValue={today} required
@@ -203,7 +203,7 @@ export default async function BudgetPage({ searchParams }: PageProps) {
                 </div>
 
                 {/* 행 2: 수입 + 지출 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                <div className="form-grid-2" style={{ marginBottom: 8 }}>
                   <div>
                     <label style={{ fontSize: 11, fontWeight: 700, color: '#059669', display: 'block', marginBottom: 4 }}>수입 금액 (원)</label>
                     <input className="input" name="income_amount" type="number" min="1" placeholder="0"
@@ -244,7 +244,8 @@ export default async function BudgetPage({ searchParams }: PageProps) {
               <span style={{ fontSize: 13 }}>위 폼으로 첫 번째 거래를 추가해 보세요.</span>
             </div>
           ) : (
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="ledger-wrap">
+            <div className="ledger-inner card" style={{ padding: 0, overflow: 'hidden' }}>
               {/* 헤더 행 */}
               <div style={{
                 display: 'grid',
@@ -325,6 +326,7 @@ export default async function BudgetPage({ searchParams }: PageProps) {
                 <span style={{ textAlign: 'right', color: balance >= 0 ? 'var(--primary)' : '#dc2626' }}>{krw(balance)}</span>
                 <span />
               </div>
+            </div>
             </div>
           )}
         </>

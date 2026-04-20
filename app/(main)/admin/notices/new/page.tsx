@@ -96,7 +96,7 @@ export default async function AdminNoticeNewPage({ searchParams }: PageProps) {
         </div>
 
         {/* 시작일시 / 만료일시 */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+        <div className="form-grid-2">
           <div className="field">
             <label className="field-label" htmlFor="starts_at">시작 일시</label>
             <input
