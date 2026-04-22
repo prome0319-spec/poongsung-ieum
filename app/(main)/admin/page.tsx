@@ -22,6 +22,7 @@ import {
   canManageVisitation,
   canManageEvents,
   canManageNewcomer,
+  canManageAnyTeamRequest,
 } from '@/lib/utils/permissions'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { SystemRole } from '@/types/user'
@@ -312,6 +313,7 @@ export default async function AdminDashboardPage() {
     { href: '/admin/budget',      emoji: '💰', category: '재정',     title: '예산 관리',      desc: '수입·지출 예산 및 결산',            visible: canViewBudget(ctx) },
     { href: '/admin/attendance-sheet', emoji: '📊', category: '출석', title: '출석부 (엑셀)', desc: '전체 멤버 출석부 관리',           visible: canViewAttendance(ctx) },
     { href: '/admin/clubs',       emoji: '🎯', category: '동아리',   title: '동아리 관리',    desc: '동아리 생성·멤버 관리',             visible: canManageClubs(ctx) },
+    { href: '/admin/teams',       emoji: '🤝', category: '사역팀',   title: '팀 신청 관리',   desc: '사역팀 가입 신청 승인·거절',        visible: canManageAnyTeamRequest(ctx) },
     { href: '/admin/newcomer',   emoji: '🌱', category: '목양',     title: '새가족 케어',    desc: '신규 멤버 첫 방문일·케어 현황',     visible: canManageNewcomer(ctx) },
     { href: '/admin/training',   emoji: '📚', category: '양육',     title: '양육 과정 관리', desc: '이수 기록 및 커리큘럼 관리',         visible: canManageTraining(ctx) },
     { href: '/admin/visitation', emoji: '🏠', category: '목양',     title: '행동 기록',      desc: '행동 내역 기록·관리',               visible: canManageVisitation(ctx) },

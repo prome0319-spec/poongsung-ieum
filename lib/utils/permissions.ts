@@ -282,6 +282,32 @@ export function canManageNewcomer(ctx: UserContext): boolean {
 }
 
 /**
+ * 사역팀 가입 신청 관리 페이지 접근 가능 여부.
+ * 관리자/목사, 목양국장(지기팀 담당), 또는 어느 팀이든 팀장이면 접근 가능.
+ */
+export function canManageAnyTeamRequest(ctx: UserContext): boolean {
+  if (isAdminOrPastor(ctx.profile.system_role)) return true
+  if (ctx.isPastoralDirector) return true
+  return ctx.teamMemberships.some((m) => m.role === 'leader')
+}
+
+/**
+ * 특정 팀의 가입 신청 승인 권한.
+ * - 관리자/목사: 모든 팀
+ * - leaderTitle === '지기장' 팀: 목양국장만 승인 가능 (지기장 제외)
+ * - 그 외 팀: 해당 팀의 팀장
+ */
+export function canApproveTeamRequest(
+  ctx: UserContext,
+  teamId: string,
+  leaderTitle: string,
+): boolean {
+  if (isAdminOrPastor(ctx.profile.system_role)) return true
+  if (leaderTitle === '지기장') return ctx.isPastoralDirector
+  return ctx.teamMemberships.some((m) => m.teamId === teamId && m.role === 'leader')
+}
+
+/**
  * 관리자 대시보드 접근 가능 여부.
  * 어떤 관리 권한이라도 있으면 대시보드에 접근해 해당 메뉴를 이용할 수 있도록 허용.
  */

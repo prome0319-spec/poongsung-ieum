@@ -48,6 +48,37 @@ export async function leaveClub(formData: FormData) {
   redirect('/clubs')
 }
 
+export async function proposeClub(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const name = (formData.get('name') as string)?.trim()
+  const description = (formData.get('description') as string)?.trim() || null
+  const emoji = (formData.get('emoji') as string)?.trim() || '🎯'
+  const min_members = parseInt(formData.get('min_members') as string) || 4
+  if (!name) return
+
+  const admin = createAdminClient()
+  const { data: last } = await admin
+    .from('clubs').select('sort_order').order('sort_order', { ascending: false }).limit(1).maybeSingle()
+
+  const { data: club } = await admin.from('clubs').insert({
+    name, description, emoji, min_members,
+    status: 'proposed',
+    is_active: false,
+    is_recruiting: false,
+    sort_order: (last?.sort_order ?? 0) + 1,
+    proposed_by: user.id,
+  }).select('id').single()
+
+  if (club?.id) {
+    await admin.from('club_members').insert({ club_id: club.id, user_id: user.id, role: 'leader' })
+  }
+
+  msg('/clubs', '동아리 개설 제안이 등록되었습니다. 관리자 승인 후 활성화됩니다.')
+}
+
 export async function createClub(formData: FormData) {
   const userId = await requireClubAdmin()
   const name = (formData.get('name') as string)?.trim()
@@ -62,11 +93,39 @@ export async function createClub(formData: FormData) {
 
   await admin.from('clubs').insert({
     name, description, emoji, min_members,
+    status: 'active',
     sort_order: (last?.sort_order ?? 0) + 1,
     created_by: userId,
   })
 
   msg('/admin/clubs', '동아리가 생성되었습니다.')
+}
+
+export async function approveClub(formData: FormData) {
+  await requireClubAdmin()
+  const id = formData.get('id') as string
+  if (!id) return
+
+  const admin = createAdminClient()
+  await admin.from('clubs').update({
+    status: 'active',
+    is_active: true,
+    is_recruiting: true,
+    updated_at: new Date().toISOString(),
+  }).eq('id', id)
+
+  msg('/admin/clubs', '동아리가 승인되어 활성화되었습니다.')
+}
+
+export async function rejectClub(formData: FormData) {
+  await requireClubAdmin()
+  const id = formData.get('id') as string
+  if (!id) return
+
+  const admin = createAdminClient()
+  await admin.from('clubs').delete().eq('id', id)
+
+  msg('/admin/clubs', '동아리 제안이 거절되었습니다.')
 }
 
 export async function updateClub(formData: FormData) {
