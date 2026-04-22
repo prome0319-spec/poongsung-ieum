@@ -317,7 +317,6 @@ export default async function AdminClubsPage({ searchParams }: PageProps) {
                       <input type="hidden" name="id" value={club.id} />
                       <button
                         type="submit"
-                        onClick={(e) => { if (!confirm(`"${club.name}" 동아리를 삭제하시겠습니까?`)) e.preventDefault() }}
                         style={{
                           padding: '8px 16px', borderRadius: 'var(--r-sm)',
                           border: '1px solid var(--danger)', background: 'none', color: 'var(--danger)',
