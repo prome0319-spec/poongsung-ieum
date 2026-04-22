@@ -58,8 +58,8 @@ export default async function AdminVisitationPage({ searchParams }: PageProps) {
         <Link href="/admin" style={{ fontSize: 14, color: 'var(--primary)', fontWeight: 600, display: 'inline-block', marginBottom: 10 }}>
           ← 관리자 대시보드
         </Link>
-        <h1 className="page-title">심방 기록</h1>
-        <p className="page-subtitle">멤버 심방 내역을 기록하고 관리합니다.</p>
+        <h1 className="page-title">행동 기록</h1>
+        <p className="page-subtitle">멤버 행동 내역을 기록하고 관리합니다.</p>
       </div>
 
       {message && (
@@ -68,13 +68,13 @@ export default async function AdminVisitationPage({ searchParams }: PageProps) {
         </div>
       )}
 
-      {/* 심방 기록 추가 */}
+      {/* 행동 기록 추가 */}
       <div className="card" style={{ padding: '18px', marginBottom: 20 }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', marginBottom: 14 }}>+ 심방 기록 추가</div>
+        <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', marginBottom: 14 }}>+ 행동 기록 추가</div>
         <form action={addVisitationRecord} style={{ display: 'grid', gap: 12 }}>
           <div className="form-grid-2">
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>심방 멤버 *</label>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>행동 멤버 *</label>
               <select name="visited_user_id" required defaultValue={filterMember ?? ''} style={INPUT}>
                 <option value="">멤버 선택</option>
                 {members.map((m) => (
@@ -83,7 +83,7 @@ export default async function AdminVisitationPage({ searchParams }: PageProps) {
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>심방 날짜 *</label>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>행동 날짜 *</label>
               <DatePicker name="visited_at" required defaultValue={new Date().toISOString().slice(0, 10)} />
             </div>
           </div>
@@ -92,8 +92,8 @@ export default async function AdminVisitationPage({ searchParams }: PageProps) {
             <input name="location" placeholder="예: 카페, 교회, 자택 등" style={INPUT} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>심방 내용 / 메모</label>
-            <textarea name="notes" rows={3} placeholder="심방 내용을 기록하세요. (비공개)" style={{ ...INPUT, resize: 'vertical' }} />
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>행동 내용 / 메모</label>
+            <textarea name="notes" rows={3} placeholder="행동 내용을 기록하세요. (비공개)" style={{ ...INPUT, resize: 'vertical' }} />
           </div>
           <button type="submit" style={{
             padding: '10px 20px', borderRadius: 'var(--r-sm)', border: 'none',
@@ -117,11 +117,11 @@ export default async function AdminVisitationPage({ searchParams }: PageProps) {
         ))}
       </div>
 
-      {/* 심방 기록 목록 */}
+      {/* 행동 기록 목록 */}
       {filtered.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: 14 }}>
           <div style={{ fontSize: 36, marginBottom: 10 }}>🏠</div>
-          심방 기록이 없습니다.
+          행동 기록이 없습니다.
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 10 }}>

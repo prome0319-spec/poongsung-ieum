@@ -33,7 +33,7 @@ export async function addVisitationRecord(formData: FormData) {
     visited_user_id, visitor_id: visitorId, visited_at, location, notes,
   })
 
-  msg('/admin/visitation', '심방 기록이 추가되었습니다.')
+  msg('/admin/visitation', '행동 기록이 추가되었습니다.')
 }
 
 export async function deleteVisitationRecord(formData: FormData) {

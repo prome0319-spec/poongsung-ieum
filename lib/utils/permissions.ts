@@ -277,6 +277,10 @@ export function canManageAnyCompanion(ctx: UserContext): boolean {
   return canManageVisit(ctx) || canManageCompanion(ctx)
 }
 
+export function canManageNewcomer(ctx: UserContext): boolean {
+  return hasPastorLevelAccess(ctx)
+}
+
 /**
  * 관리자 대시보드 접근 가능 여부.
  * 어떤 관리 권한이라도 있으면 대시보드에 접근해 해당 메뉴를 이용할 수 있도록 허용.

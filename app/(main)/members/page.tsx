@@ -161,18 +161,22 @@ export default async function MembersPage({ searchParams }: PageProps) {
         <>
           <form method="GET" style={{ marginBottom: 12 }}>
             <input type="hidden" name="tab" value="all" />
-            <div style={{
-              display: 'flex', gap: 0, background: 'var(--bg-card)',
-              border: '1.5px solid var(--border-strong)', borderRadius: 'var(--r-lg)',
-              overflow: 'hidden', boxShadow: 'var(--shadow-xs)',
-            }}>
-              <span style={{ padding: '0 12px 0 16px', fontSize: 18, flexShrink: 0, color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>🔍</span>
-              <input
-                name="q" type="search" defaultValue={query}
-                placeholder="이름 또는 닉네임으로 검색"
-                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14.5, padding: '12px 0', background: 'transparent', color: 'var(--text)', fontFamily: 'inherit' }}
-              />
-              <button type="submit" style={{ padding: '0 16px', height: 46, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+              <div style={{
+                flex: 1, minWidth: 0,
+                display: 'flex', alignItems: 'center',
+                background: 'var(--bg-card)',
+                border: '1.5px solid var(--border-strong)', borderRadius: 'var(--r-lg)',
+                overflow: 'hidden', boxShadow: 'var(--shadow-xs)',
+              }}>
+                <span style={{ padding: '0 10px 0 14px', fontSize: 18, flexShrink: 0, color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>🔍</span>
+                <input
+                  name="q" type="search" defaultValue={query}
+                  placeholder="이름 또는 닉네임으로 검색"
+                  style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', fontSize: 14, padding: '12px 0', background: 'transparent', color: 'var(--text)', fontFamily: 'inherit' }}
+                />
+              </div>
+              <button type="submit" style={{ flexShrink: 0, padding: '0 18px', borderRadius: 'var(--r-lg)', border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                 검색
               </button>
             </div>

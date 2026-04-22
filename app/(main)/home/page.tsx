@@ -9,7 +9,7 @@ import {
   canManageHomeNotice, canViewAttendance, canManagePmGroups,
   hasPastorLevelAccess, canAccessSoldierAdmin, canManageOrg,
   canViewBudget, canManageAnyCompanion, canManageClubs,
-  canManageTraining, canManageVisitation, canManageEvents,
+  canManageTraining, canManageVisitation, canManageEvents, canManageNewcomer,
 } from '@/lib/utils/permissions'
 import { loadUserContext } from '@/lib/utils/user-context'
 import type { SystemRole, HomeNotice } from '@/types/user'
@@ -344,8 +344,9 @@ export default async function HomePage() {
     { href: '/admin/budget',           emoji: '💰', category: '재정',   title: '예산 관리',      visible: canViewBudget(ctx) },
     { href: '/admin/attendance-sheet', emoji: '📊', category: '출석',   title: '출석부 (엑셀)',  visible: canViewAttendance(ctx) },
     { href: '/admin/clubs',            emoji: '🎯', category: '동아리', title: '동아리 관리',    visible: canManageClubs(ctx) },
+    { href: '/admin/newcomer',         emoji: '🌱', category: '목양',   title: '새가족 케어',    visible: canManageNewcomer(ctx) },
     { href: '/admin/training',         emoji: '📚', category: '양육',   title: '양육 과정 관리', visible: canManageTraining(ctx) },
-    { href: '/admin/visitation',       emoji: '🏠', category: '목양',   title: '심방 기록',      visible: canManageVisitation(ctx) },
+    { href: '/admin/visitation',       emoji: '🏠', category: '목양',   title: '행동 기록',      visible: canManageVisitation(ctx) },
     { href: '/admin/events',           emoji: '🎉', category: '행사',   title: '행사 관리',      visible: canManageEvents(ctx) },
   ].filter((c) => c.visible) : []
 
@@ -384,31 +385,34 @@ export default async function HomePage() {
 
         {/* ── 검색 바 ── */}
         <form method="GET" action="/search">
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 0,
-            background: 'var(--bg-card)',
-            border: '1.5px solid var(--border-strong)',
-            borderRadius: 'var(--r-lg)',
-            overflow: 'hidden',
-            boxShadow: 'var(--shadow-xs)',
-          }}>
-            <span style={{ padding: '0 12px 0 16px', fontSize: 18, flexShrink: 0, color: 'var(--text-muted)' }}>🔍</span>
-            <input
-              name="q"
-              type="search"
-              placeholder="게시글, 일정 검색..."
-              style={{
-                flex: 1, border: 'none', outline: 'none',
-                fontSize: 14.5, padding: '13px 0',
-                background: 'transparent', color: 'var(--text)',
-                fontFamily: 'inherit',
-              }}
-            />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+            <div style={{
+              flex: 1, minWidth: 0,
+              display: 'flex', alignItems: 'center',
+              background: 'var(--bg-card)',
+              border: '1.5px solid var(--border-strong)',
+              borderRadius: 'var(--r-lg)',
+              overflow: 'hidden',
+              boxShadow: 'var(--shadow-xs)',
+            }}>
+              <span style={{ padding: '0 10px 0 14px', fontSize: 18, flexShrink: 0, color: 'var(--text-muted)' }}>🔍</span>
+              <input
+                name="q"
+                type="search"
+                placeholder="게시글, 일정 검색..."
+                style={{
+                  flex: 1, minWidth: 0, border: 'none', outline: 'none',
+                  fontSize: 14, padding: '13px 0',
+                  background: 'transparent', color: 'var(--text)',
+                  fontFamily: 'inherit',
+                }}
+              />
+            </div>
             <button type="submit" style={{
-              padding: '0 16px', height: 48, border: 'none',
+              flexShrink: 0, padding: '0 18px',
+              borderRadius: 'var(--r-lg)', border: 'none',
               background: 'var(--primary)', color: '#fff',
-              fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              flexShrink: 0,
+              fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
             }}>
               검색
             </button>

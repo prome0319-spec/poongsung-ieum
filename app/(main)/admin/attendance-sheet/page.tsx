@@ -80,7 +80,7 @@ export default async function AttendanceSheetPage({ searchParams }: PageProps) {
 
       {/* 날짜/행사 선택 */}
       <form method="GET" style={{ marginBottom: 16 }}>
-        <div className="card" style={{ padding: '14px 16px', display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 10, alignItems: 'end' }}>
+        <div className="card" style={{ padding: '14px 16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, alignItems: 'end' }}>
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>날짜</label>
             <input className="input" type="date" name="date" defaultValue={eventDate} style={{ fontSize: 13 }} />
